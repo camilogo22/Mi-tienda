@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 
 export default function RegistroScreen() {
@@ -64,7 +65,7 @@ export default function RegistroScreen() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Text style={styles.iconSymbol}>[R]</Text>
+              <Ionicons name="person-add" size={30} color="#0284c7" />
             </View>
             <Text style={styles.brandBadge}>Registro</Text>
             <Text style={styles.title}>Crear cuenta de tendero</Text>
@@ -75,46 +76,55 @@ export default function RegistroScreen() {
 
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorBadge}>[Aviso]</Text>
+              <Ionicons name="alert-circle" size={18} color="#dc2626" style={{ marginRight: 8 }} />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo electrónico *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="ejemplo@correo.com"
-              placeholderTextColor="#94a3b8"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
+            <View style={styles.inputWithIconRow}>
+              <Ionicons name="mail-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.input}
+                placeholder="ejemplo@correo.com"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Contraseña *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Mínimo 6 caracteres"
-              placeholderTextColor="#94a3b8"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.inputWithIconRow}>
+              <Ionicons name="lock-closed-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.input}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Confirmar contraseña *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Repite la contraseña"
-              placeholderTextColor="#94a3b8"
-              secureTextEntry
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-            />
+            <View style={styles.inputWithIconRow}>
+              <Ionicons name="shield-checkmark-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.input}
+                placeholder="Repite la contraseña"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+              />
+            </View>
           </View>
 
           <TouchableOpacity
@@ -126,7 +136,10 @@ export default function RegistroScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Registrar mi cuenta</Text>
+              <View style={styles.btnContentRow}>
+                <Ionicons name="checkmark-circle-outline" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>Registrar mi cuenta</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -169,20 +182,15 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#bae6fd',
-  },
-  iconSymbol: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0284c7',
   },
   brandBadge: {
     backgroundColor: '#f0fdf4',
@@ -219,12 +227,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
-    gap: 8,
-  },
-  errorBadge: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#dc2626',
   },
   errorText: {
     flex: 1,
@@ -241,13 +243,18 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 6,
   },
-  input: {
+  inputWithIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  input: {
+    flex: 1,
     fontSize: 15,
     color: '#1e293b',
   },
@@ -262,6 +269,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.7,

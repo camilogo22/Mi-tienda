@@ -12,6 +12,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Link } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 
 export default function LoginScreen() {
@@ -46,45 +47,51 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Text style={styles.iconSymbol}>[T]</Text>
+              <Ionicons name="storefront" size={32} color="#0284c7" />
             </View>
             <Text style={styles.brandBadge}>Sistema de inventario</Text>
             <Text style={styles.title}>Mi Tienda</Text>
             <Text style={styles.subtitle}>
-              Control local sin conexión y sincronización con la nube
+              Control local sin conexión y respaldo en la nube
             </Text>
           </View>
 
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorBadge}>[Aviso]</Text>
+              <Ionicons name="alert-circle" size={18} color="#dc2626" style={{ marginRight: 8 }} />
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Correo electrónico</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="ejemplo@correo.com"
-              placeholderTextColor="#94a3b8"
-              autoCapitalize="none"
-              keyboardType="email-address"
-              value={email}
-              onChangeText={setEmail}
-            />
+            <View style={styles.inputWithIconRow}>
+              <Ionicons name="mail-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.input}
+                placeholder="ejemplo@correo.com"
+                placeholderTextColor="#94a3b8"
+                autoCapitalize="none"
+                keyboardType="email-address"
+                value={email}
+                onChangeText={setEmail}
+              />
+            </View>
           </View>
 
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Contraseña</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="••••••••"
-              placeholderTextColor="#94a3b8"
-              secureTextEntry
-              value={password}
-              onChangeText={setPassword}
-            />
+            <View style={styles.inputWithIconRow}>
+              <Ionicons name="lock-closed-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.input}
+                placeholder="••••••••"
+                placeholderTextColor="#94a3b8"
+                secureTextEntry
+                value={password}
+                onChangeText={setPassword}
+              />
+            </View>
           </View>
 
           <TouchableOpacity
@@ -96,7 +103,10 @@ export default function LoginScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Ingresar al sistema</Text>
+              <View style={styles.btnContentRow}>
+                <Ionicons name="log-in-outline" size={20} color="#ffffff" style={{ marginRight: 8 }} />
+                <Text style={styles.buttonText}>Ingresar al sistema</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -141,20 +151,15 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   iconCircle: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#bae6fd',
-  },
-  iconSymbol: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#0284c7',
   },
   brandBadge: {
     backgroundColor: '#f0fdf4',
@@ -191,12 +196,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
-    gap: 8,
-  },
-  errorBadge: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#dc2626',
   },
   errorText: {
     flex: 1,
@@ -213,13 +212,18 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 6,
   },
-  input: {
+  inputWithIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  input: {
+    flex: 1,
     fontSize: 15,
     color: '#1e293b',
   },
@@ -234,6 +238,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 4,
     elevation: 3,
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonDisabled: {
     opacity: 0.7,

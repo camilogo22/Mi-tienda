@@ -13,6 +13,7 @@ import {
   Alert,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useProducts } from '@/hooks/useProducts';
 
 export default function ProductoFormScreen() {
@@ -148,8 +149,14 @@ export default function ProductoFormScreen() {
         <View style={styles.card}>
           <View style={styles.badgeRow}>
             <View style={styles.categoryPill}>
+              <Ionicons
+                name={isEditing ? 'create-outline' : 'add-circle-outline'}
+                size={13}
+                color="#0369a1"
+                style={{ marginRight: 4 }}
+              />
               <Text style={styles.categoryPillText}>
-                {isEditing ? 'Edición de inventario' : 'Alta de producto'}
+                {isEditing ? 'Edición de producto' : 'Registro de producto'}
               </Text>
             </View>
           </View>
@@ -160,58 +167,70 @@ export default function ProductoFormScreen() {
           <Text style={styles.formSubtitle}>
             {isEditing
               ? 'Actualiza los datos del producto existente en la tienda'
-              : 'Registra un producto para llevar control del stock y precio'}
+              : 'Registra un producto para llevar control de unidades y precio'}
           </Text>
 
           {errorMessage ? (
             <View style={styles.alertBox}>
-              <Text style={styles.alertBadge}>[Error]</Text>
+              <Ionicons name="alert-circle" size={18} color="#b91c1c" style={{ marginRight: 8 }} />
               <Text style={styles.alertText}>{errorMessage}</Text>
             </View>
           ) : null}
 
           <View style={styles.inputGroup}>
             <Text style={styles.fieldLabel}>Nombre del producto *</Text>
-            <TextInput
-              style={styles.inputControl}
-              placeholder="Ejemplo: Arroz Diana 1kg, Aceite Premier, Leche entera"
-              placeholderTextColor="#94a3b8"
-              value={name}
-              onChangeText={setName}
-            />
+            <View style={styles.inputWithIconRow}>
+              <Ionicons name="pricetag-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+              <TextInput
+                style={styles.inputControl}
+                placeholder="Ejemplo: Arroz Diana 1kg, Aceite Premier, Leche"
+                placeholderTextColor="#94a3b8"
+                value={name}
+                onChangeText={setName}
+              />
+            </View>
           </View>
 
           <View style={styles.twoColRow}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <Text style={styles.fieldLabel}>Cantidad (unidades) *</Text>
-              <TextInput
-                style={styles.inputControl}
-                placeholder="0"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-                value={quantity}
-                onChangeText={setQuantity}
-              />
-              <Text style={styles.fieldHint}>Mayor o igual a 0</Text>
+              <View style={styles.inputWithIconRow}>
+                <Ionicons name="cube-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.inputControl}
+                  placeholder="0"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="number-pad"
+                  value={quantity}
+                  onChangeText={setQuantity}
+                />
+              </View>
+              <Text style={styles.fieldHint}>Entero mayor o igual a 0</Text>
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>Precio en pesos *</Text>
-              <TextInput
-                style={styles.inputControl}
-                placeholder="4500"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-                value={price}
-                onChangeText={setPrice}
-              />
-              <Text style={styles.fieldHint}>Sin puntos ni comas</Text>
+              <Text style={styles.fieldLabel}>Precio unitario *</Text>
+              <View style={styles.inputWithIconRow}>
+                <Ionicons name="cash-outline" size={18} color="#94a3b8" style={{ marginRight: 8 }} />
+                <TextInput
+                  style={styles.inputControl}
+                  placeholder="4500"
+                  placeholderTextColor="#94a3b8"
+                  keyboardType="number-pad"
+                  value={price}
+                  onChangeText={setPrice}
+                />
+              </View>
+              <Text style={styles.fieldHint}>En pesos, sin decimales</Text>
             </View>
           </View>
 
-          {/* Tarjeta de Cálculo */}
+          {/* Tarjeta de Cálculo en Vivo */}
           <View style={styles.calcSummaryBox}>
-            <Text style={styles.calcLabel}>Valor en existencia calculado:</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calculator-outline" size={16} color="#0369a1" style={{ marginRight: 6 }} />
+              <Text style={styles.calcLabel}>Subtotal en inventario:</Text>
+            </View>
             <Text style={styles.calcValue}>${calcSubtotal()} pesos</Text>
           </View>
 
@@ -225,9 +244,12 @@ export default function ProductoFormScreen() {
               {isSubmitting ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.primarySaveBtnText}>
-                  {isEditing ? 'Actualizar producto' : 'Guardar en inventario'}
-                </Text>
+                <View style={styles.btnContentRow}>
+                  <Ionicons name="save-outline" size={18} color="#ffffff" style={{ marginRight: 8 }} />
+                  <Text style={styles.primarySaveBtnText}>
+                    {isEditing ? 'Actualizar producto' : 'Guardar en inventario'}
+                  </Text>
+                </View>
               )}
             </TouchableOpacity>
 
@@ -237,7 +259,10 @@ export default function ProductoFormScreen() {
               disabled={isSubmitting}
               activeOpacity={0.8}
             >
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
+              <View style={styles.btnContentRow}>
+                <Ionicons name="close-outline" size={18} color="#475569" style={{ marginRight: 6 }} />
+                <Text style={styles.cancelBtnText}>Cancelar</Text>
+              </View>
             </TouchableOpacity>
           </View>
         </View>
@@ -283,6 +308,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   categoryPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#e0f2fe',
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -314,12 +341,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 16,
-    gap: 8,
-  },
-  alertBadge: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#b91c1c',
   },
   alertText: {
     flex: 1,
@@ -340,13 +361,18 @@ const styles = StyleSheet.create({
     color: '#334155',
     marginBottom: 6,
   },
-  inputControl: {
+  inputWithIconRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#cbd5e1',
     borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: 12,
+    height: 48,
+  },
+  inputControl: {
+    flex: 1,
     fontSize: 15,
     color: '#0f172a',
   },
@@ -407,6 +433,11 @@ const styles = StyleSheet.create({
     color: '#475569',
     fontSize: 15,
     fontWeight: '600',
+  },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   btnDisabled: {
     opacity: 0.7,

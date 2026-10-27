@@ -1,5 +1,5 @@
 // app/index.tsx
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '@/context/AuthContext';
 import { useProducts } from '@/hooks/useProducts';
 import { useAutoSync } from '@/hooks/useAutoSync';
@@ -21,10 +22,13 @@ import { syncProducts } from '@/services/sync';
 import { productsRepo } from '@/db/repositories/products';
 import type { Product } from '@/db/schema';
 
+type FilterType = 'todos' | 'pendientes' | 'nube';
+
 export default function IndexScreen() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeFilter, setActiveFilter] = useState<FilterType>('todos');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncStatusMessage, setSyncStatusMessage] = useState<{
     text: string;
@@ -40,12 +44,12 @@ export default function IndexScreen() {
     deleteProduct,
   } = useProducts(searchQuery);
 
-  // Asegura productos de ejemplo si la lista está vacía
+  // Asegura productos iniciales de ejemplo si no existen registros
   useEffect(() => {
     productsRepo.ensureSampleProducts().catch((e) => console.log('Inicialización:', e));
   }, []);
 
-  // Sincronización automática al recuperar conexión
+  // Sincronización automática al recuperar la conexión a internet
   useAutoSync(
     user?.id,
     useCallback((result) => {
@@ -57,8 +61,21 @@ export default function IndexScreen() {
   );
 
   const formatCurrency = (amount: number) => {
-    return '$' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return '$' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' pesos';
   };
+
+  const isPending = (p: Product) => {
+    return !p.syncedAt || p.syncedAt.getTime() < p.updatedAt.getTime();
+  };
+
+  // Filtrado avanzado combinado (búsqueda por texto + filtro rápido)
+  const displayProducts = useMemo(() => {
+    return products.filter((p) => {
+      if (activeFilter === 'pendientes') return isPending(p);
+      if (activeFilter === 'nube') return !isPending(p);
+      return true;
+    });
+  }, [products, activeFilter]);
 
   const handleSync = async () => {
     if (!user) {
@@ -67,7 +84,7 @@ export default function IndexScreen() {
     }
 
     setIsSyncing(true);
-    setSyncStatusMessage({ text: 'Sincronizando con la nube de Supabase...', type: 'info' });
+    setSyncStatusMessage({ text: 'Sincronizando con Supabase...', type: 'info' });
 
     const result = await syncProducts(user.id);
     setIsSyncing(false);
@@ -138,10 +155,6 @@ export default function IndexScreen() {
     }
   };
 
-  const isPending = (p: Product) => {
-    return !p.syncedAt || p.syncedAt.getTime() < p.updatedAt.getTime();
-  };
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -149,6 +162,7 @@ export default function IndexScreen() {
         <View style={styles.topHeader}>
           <View style={styles.headerInfo}>
             <View style={styles.titleRow}>
+              <Ionicons name="storefront" size={24} color="#ffffff" />
               <Text style={styles.brandTitle}>Mi Tienda</Text>
               <View style={styles.onlinePill}>
                 <View style={styles.greenDot} />
@@ -164,24 +178,31 @@ export default function IndexScreen() {
             onPress={handleSignOut}
             activeOpacity={0.7}
           >
-            <Text style={styles.logoutButtonText}>Cerrar sesión</Text>
+            <Ionicons name="log-out-outline" size={16} color="#ffffff" style={{ marginRight: 4 }} />
+            <Text style={styles.logoutButtonText}>Salir</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Tarjetas de Estadísticas */}
+        {/* Tarjetas de Métricas de Inventario */}
         <View style={styles.metricsContainer}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Total unidades</Text>
+            <View style={styles.metricHeaderRow}>
+              <Ionicons name="cube-outline" size={14} color="#0284c7" />
+              <Text style={styles.metricLabel}>Stock</Text>
+            </View>
             <Text style={styles.metricNumber}>{totalUnits}</Text>
-            <Text style={styles.metricFoot}>{allProducts.length} registros</Text>
+            <Text style={styles.metricFoot}>{allProducts.length} productos</Text>
           </View>
 
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Valor inventario</Text>
+            <View style={styles.metricHeaderRow}>
+              <Ionicons name="cash-outline" size={14} color="#16a34a" />
+              <Text style={styles.metricLabel}>Valor Total</Text>
+            </View>
             <Text style={styles.metricNumberValue}>
-              {formatCurrency(totalValue)}
+              {'$' + totalValue.toLocaleString('es-CO')}
             </Text>
-            <Text style={styles.metricFoot}>Total en pesos</Text>
+            <Text style={styles.metricFoot}>En pesos</Text>
           </View>
 
           <View
@@ -190,7 +211,14 @@ export default function IndexScreen() {
               pendingCount > 0 ? styles.metricPendingAlert : styles.metricSyncedOk,
             ]}
           >
-            <Text style={styles.metricLabel}>Pendientes</Text>
+            <View style={styles.metricHeaderRow}>
+              <Ionicons
+                name={pendingCount > 0 ? 'cloud-upload-outline' : 'checkmark-done-circle-outline'}
+                size={14}
+                color={pendingCount > 0 ? '#b45309' : '#15803d'}
+              />
+              <Text style={styles.metricLabel}>Pendientes</Text>
+            </View>
             <Text
               style={[
                 styles.metricNumber,
@@ -205,7 +233,7 @@ export default function IndexScreen() {
           </View>
         </View>
 
-        {/* Botones de Acción */}
+        {/* Botones Principales de Sincronización y Nuevo Producto */}
         <View style={styles.actionRow}>
           <TouchableOpacity
             style={[styles.syncBtn, isSyncing && styles.btnDisabled]}
@@ -216,7 +244,10 @@ export default function IndexScreen() {
             {isSyncing ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
-              <Text style={styles.syncBtnText}>[⟳] Sincronizar</Text>
+              <View style={styles.btnContentRow}>
+                <Ionicons name="sync" size={16} color="#ffffff" style={{ marginRight: 6 }} />
+                <Text style={styles.syncBtnText}>Sincronizar</Text>
+              </View>
             )}
           </TouchableOpacity>
 
@@ -225,7 +256,10 @@ export default function IndexScreen() {
             onPress={() => router.push('/producto')}
             activeOpacity={0.8}
           >
-            <Text style={styles.addBtnText}>[+] Nuevo producto</Text>
+            <View style={styles.btnContentRow}>
+              <Ionicons name="add-circle" size={18} color="#ffffff" style={{ marginRight: 6 }} />
+              <Text style={styles.addBtnText}>Nuevo producto</Text>
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -239,6 +273,24 @@ export default function IndexScreen() {
               syncStatusMessage.type === 'info' && styles.statusInfo,
             ]}
           >
+            <Ionicons
+              name={
+                syncStatusMessage.type === 'success'
+                  ? 'checkmark-circle'
+                  : syncStatusMessage.type === 'error'
+                  ? 'alert-circle'
+                  : 'information-circle'
+              }
+              size={18}
+              color={
+                syncStatusMessage.type === 'success'
+                  ? '#15803d'
+                  : syncStatusMessage.type === 'error'
+                  ? '#b91c1c'
+                  : '#0369a1'
+              }
+              style={{ marginRight: 8 }}
+            />
             <Text
               style={[
                 styles.statusNoticeText,
@@ -252,28 +304,91 @@ export default function IndexScreen() {
           </View>
         )}
 
-        {/* Barra de Búsqueda */}
-        <View style={styles.searchWrap}>
+        {/* Barra de Búsqueda Mejorada */}
+        <View style={styles.searchSection}>
           <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>[Búsqueda]</Text>
+            <Ionicons name="search-outline" size={18} color="#64748b" style={{ marginRight: 8 }} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Escribe el nombre del producto..."
+              placeholder="Buscar por nombre (ej. arroz, aceite, leche)..."
               placeholderTextColor="#94a3b8"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text style={styles.clearSearch}>[X]</Text>
+              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="close-circle" size={18} color="#94a3b8" />
               </TouchableOpacity>
             )}
           </View>
+
+          {/* Filtros rápidos: Todos / Pendientes / En la nube */}
+          <View style={styles.filterTabsRow}>
+            <TouchableOpacity
+              style={[styles.filterChip, activeFilter === 'todos' && styles.filterChipActive]}
+              onPress={() => setActiveFilter('todos')}
+            >
+              <Text
+                style={[
+                  styles.filterChipText,
+                  activeFilter === 'todos' && styles.filterChipTextActive,
+                ]}
+              >
+                Todos ({products.length})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                activeFilter === 'pendientes' && styles.filterChipActiveWarning,
+              ]}
+              onPress={() => setActiveFilter('pendientes')}
+            >
+              <Ionicons
+                name="time-outline"
+                size={12}
+                color={activeFilter === 'pendientes' ? '#b45309' : '#64748b'}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.filterChipText,
+                  activeFilter === 'pendientes' && styles.filterChipTextWarning,
+                ]}
+              >
+                Pendientes ({pendingCount})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.filterChip,
+                activeFilter === 'nube' && styles.filterChipActiveSuccess,
+              ]}
+              onPress={() => setActiveFilter('nube')}
+            >
+              <Ionicons
+                name="cloud-done-outline"
+                size={12}
+                color={activeFilter === 'nube' ? '#15803d' : '#64748b'}
+                style={{ marginRight: 4 }}
+              />
+              <Text
+                style={[
+                  styles.filterChipText,
+                  activeFilter === 'nube' && styles.filterChipTextSuccess,
+                ]}
+              >
+                En la nube ({allProducts.length - pendingCount})
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {/* Lista de Productos */}
+        {/* Lista de Productos con Scroll Reactivo */}
         <FlatList
-          data={products}
+          data={displayProducts}
           keyExtractor={(item) => item.id.toString()}
           contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
@@ -282,13 +397,16 @@ export default function IndexScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyCard}>
+              <Ionicons name="cube-outline" size={48} color="#cbd5e1" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyHeading}>
-                {searchQuery ? 'Sin resultados para la búsqueda' : 'No hay productos en inventario'}
+                {searchQuery || activeFilter !== 'todos'
+                  ? 'No se encontraron productos'
+                  : 'Inventario vacío'}
               </Text>
               <Text style={styles.emptyDetails}>
                 {searchQuery
-                  ? `No se encontró ningún producto que coincida con "${searchQuery}".`
-                  : 'Presiona "[+] Nuevo producto" para registrar existencias.'}
+                  ? `No hay coincidencias para "${searchQuery}" con el filtro actual.`
+                  : 'Presiona "Nuevo producto" para registrar existencias en la tienda.'}
               </Text>
             </View>
           }
@@ -311,13 +429,19 @@ export default function IndexScreen() {
                       pending ? styles.pillPending : styles.pillSynced,
                     ]}
                   >
+                    <Ionicons
+                      name={pending ? 'time-outline' : 'cloud-done'}
+                      size={12}
+                      color={pending ? '#b45309' : '#15803d'}
+                      style={{ marginRight: 4 }}
+                    />
                     <Text
                       style={[
                         styles.statusPillText,
                         pending ? styles.pillPendingText : styles.pillSyncedText,
                       ]}
                     >
-                      {pending ? '● Pendiente' : '● En la nube'}
+                      {pending ? 'Pendiente' : 'En la nube'}
                     </Text>
                   </View>
                 </View>
@@ -325,30 +449,33 @@ export default function IndexScreen() {
                 <View style={styles.cardSpecs}>
                   <View style={styles.specBox}>
                     <Text style={styles.specLabel}>Existencias</Text>
-                    <Text style={styles.specValue}>{item.quantity} unidades</Text>
+                    <Text style={styles.specValue}>{item.quantity} uds</Text>
                   </View>
                   <View style={styles.specBox}>
                     <Text style={styles.specLabel}>Precio unitario</Text>
-                    <Text style={styles.specValue}>{formatCurrency(item.price)}</Text>
+                    <Text style={styles.specValue}>
+                      {'$' + item.price.toLocaleString('es-CO')}
+                    </Text>
                   </View>
                   <View style={styles.specBox}>
-                    <Text style={styles.specLabel}>Valor total</Text>
+                    <Text style={styles.specLabel}>Subtotal</Text>
                     <Text style={styles.specTotal}>
-                      {formatCurrency(item.quantity * item.price)}
+                      {'$' + (item.quantity * item.price).toLocaleString('es-CO')}
                     </Text>
                   </View>
                 </View>
 
                 <View style={styles.cardActionsFooter}>
-                  <Text style={styles.actionPrompt}>
-                    Toca para editar · Mantén presionado para borrar
-                  </Text>
+                  <View style={styles.hintWithIcon}>
+                    <Ionicons name="create-outline" size={13} color="#94a3b8" style={{ marginRight: 4 }} />
+                    <Text style={styles.actionPrompt}>Toca para editar · Mantén presionado para borrar</Text>
+                  </View>
                   <TouchableOpacity
                     onPress={() => handleProductDelete(item)}
                     style={styles.deleteMiniBtn}
                     activeOpacity={0.6}
                   >
-                    <Text style={styles.deleteMiniText}>[Borrar]</Text>
+                    <Ionicons name="trash-outline" size={14} color="#dc2626" />
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -418,9 +545,11 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   logoutButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     paddingVertical: 6,
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
     borderRadius: 8,
   },
   logoutButtonText: {
@@ -430,7 +559,9 @@ const styles = StyleSheet.create({
   },
   metricsContainer: {
     flexDirection: 'row',
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 6,
     gap: 8,
   },
   metricCard: {
@@ -444,15 +575,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  metricHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
   },
   metricPendingAlert: {
     backgroundColor: '#fffbeb',
-    borderWidth: 1,
     borderColor: '#fde68a',
   },
   metricSyncedOk: {
     backgroundColor: '#f0fdf4',
-    borderWidth: 1,
     borderColor: '#bbf7d0',
   },
   metricLabel: {
@@ -465,10 +602,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#0f172a',
-    marginVertical: 2,
+    marginVertical: 1,
   },
   metricNumberValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
     color: '#0284c7',
     marginVertical: 2,
@@ -486,8 +623,8 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,
+    paddingVertical: 8,
     gap: 10,
-    marginBottom: 8,
   },
   syncBtn: {
     flex: 1,
@@ -525,10 +662,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  btnContentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   btnDisabled: {
     opacity: 0.6,
   },
   statusNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginHorizontal: 12,
     marginBottom: 8,
     padding: 10,
@@ -548,8 +692,8 @@ const styles = StyleSheet.create({
     borderColor: '#bae6fd',
   },
   statusNoticeText: {
+    flex: 1,
     fontSize: 13,
-    textAlign: 'center',
     fontWeight: '600',
   },
   textSuccess: {
@@ -561,9 +705,9 @@ const styles = StyleSheet.create({
   textInfo: {
     color: '#0369a1',
   },
-  searchWrap: {
+  searchSection: {
     paddingHorizontal: 12,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   searchBar: {
     flexDirection: 'row',
@@ -571,26 +715,55 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#cbd5e1',
     paddingHorizontal: 12,
     height: 44,
-  },
-  searchIcon: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#64748b',
-    marginRight: 8,
   },
   searchInput: {
     flex: 1,
     fontSize: 14,
     color: '#1e293b',
   },
-  clearSearch: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#94a3b8',
-    paddingHorizontal: 4,
+  filterTabsRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  filterChipActive: {
+    backgroundColor: '#0284c7',
+    borderColor: '#0284c7',
+  },
+  filterChipActiveWarning: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
+  },
+  filterChipActiveSuccess: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#bbf7d0',
+  },
+  filterChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  filterChipTextActive: {
+    color: '#ffffff',
+  },
+  filterChipTextWarning: {
+    color: '#92400e',
+  },
+  filterChipTextSuccess: {
+    color: '#166534',
   },
   listContainer: {
     padding: 12,
@@ -623,8 +796,10 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   statusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
     paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 20,
   },
   pillPending: {
@@ -675,20 +850,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 4,
   },
+  hintWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   actionPrompt: {
     fontSize: 11,
     color: '#94a3b8',
   },
   deleteMiniBtn: {
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 4,
+    padding: 6,
+    borderRadius: 6,
     backgroundColor: '#fee2e2',
-  },
-  deleteMiniText: {
-    fontSize: 11,
-    color: '#dc2626',
-    fontWeight: '700',
   },
   emptyCard: {
     backgroundColor: '#ffffff',
