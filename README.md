@@ -72,34 +72,49 @@
 A continuación se presentan las capturas requeridas en la evaluación tomadas directamente desde la aplicación en ejecución móvil:
 
 ### 01. Pantalla de inicio de sesión (`01-login.png`)
+
 Muestra la interfaz de autenticación limpia en español, con iconos vectoriales y formulario de acceso.
+
 ![Login](capturas/01-login.png)
 
 ### 02. Pantalla de registro de usuario (`02-registro.png`)
+
 Formulario de creación de cuenta de tendero con campos protegidos y validaciones.
+
 ![Registro](capturas/02-registro.png)
 
 ### 03. Pantalla principal con productos, totales e indicadores (`03-principal.png`)
+
 Inventario con catálogo de productos, cálculo reactivo de stock total (136 uds), valor total ($900.400 pesos), barra de búsqueda en tiempo real e insignias de sincronización ("En la nube").
+
 ![Principal](capturas/03-principal.png)
 
 ### 04. Formulario editando un producto existente (`04-formulario.png`)
+
 Pantalla de edición del producto "Café Sello Rojo 500g" con recálculo dinámico de subtotal ($108.000 pesos) y validación de tipos numéricos.
+
 ![Formulario](capturas/04-formulario.png)
 
 ### 05. Producto creado en modo avión (`05-sin-conexion.png`)
+
 Demostración de funcionamiento local offline: teléfono con modo avión activo, el producto **"Menta Chao"** (50 uds, $200) creado en la base SQLite local, marcado con la insignia amarilla `● Pendiente`, el indicador superior marcando `Pendientes: 1 (Por respaldar)` y la barra inferior avisando que no hay conexión sin interrumpir la operación del usuario.
+
 ![Sin Conexión](capturas/05-sin-conexion.png)
 
 ### 06. Pantalla principal después de sincronizar con resultado (`06-sincronizado.png`)
+
 Muestra la recuperación automática de conectividad: el mensaje descriptivo verde `"Sincronización automática: 1 subidos, 0 bajados"`, el producto **"Menta Chao"** actualizado con la insignia verde `● En la nube`, el contador de pendientes restablecido a 0 y los totales consolidados (191 uds / $915.400 pesos).
+
 ![Sincronizado](capturas/06-sincronizado.png)
 
 ### 07. Panel de Supabase con la tabla products (`07-supabase.png`)
+
 Consola de Supabase en la sección *Table Editor / Database Tables*, evidenciando la tabla `products` con sus 8 columnas estructuradas (`id`, `user_id`, `client_id`, `name`, `quantity`, `price`, `updated_at`, `created_at`), llave primaria autoincremental y clave foránea enlazada a `auth.users`.
+
 ![Supabase](capturas/07-supabase.png)
 
 #### Diagrama de relaciones en Supabase:
+
 ![Supabase Schema](capturas/07-supabase-schema.png)
 
 ---
