@@ -69,27 +69,34 @@
 
 ## 3. Capturas de Pantalla
 
-A continuación se presentan las 7 capturas requeridas en la evaluación:
+A continuación se presentan las capturas requeridas en la evaluación tomadas directamente desde la aplicación en ejecución móvil:
 
-### 01. Pantalla de inicio de sesión
+### 01. Pantalla de inicio de sesión (`01-login.png`)
+Muestra la interfaz de autenticación limpia en español, con iconos vectoriales y formulario de acceso.
 ![Login](capturas/01-login.png)
 
-### 02. Pantalla de registro con validación visible
+### 02. Pantalla de registro de usuario (`02-registro.png`)
+Formulario de creación de cuenta de tendero con campos protegidos y validaciones.
 ![Registro](capturas/02-registro.png)
 
-### 03. Pantalla principal con productos, totales e indicadores
+### 03. Pantalla principal con productos, totales e indicadores (`03-principal.png`)
+Inventario con catálogo de productos, cálculo reactivo de stock total (136 uds), valor total ($900.400 pesos), barra de búsqueda en tiempo real e insignias de sincronización ("En la nube").
 ![Principal](capturas/03-principal.png)
 
-### 04. Formulario editando un producto existente
+### 04. Formulario editando un producto existente (`04-formulario.png`)
+Pantalla de edición del producto "Café Sello Rojo 500g" con recálculo dinámico de subtotal ($108.000 pesos) y validación de tipos numéricos.
 ![Formulario](capturas/04-formulario.png)
 
-### 05. Producto creado en modo avión (pendiente)
+### 05. Producto creado en modo avión (`05-sin-conexion.png`)
+Demostración de funcionamiento sin conexión con producto pendiente de subida.
 ![Sin Conexión](capturas/05-sin-conexion.png)
 
-### 06. Pantalla principal después de sincronizar con resultado
+### 06. Pantalla principal después de sincronizar con resultado (`06-sincronizado.png`)
+Muestra la sincronización automática al recuperar la conectividad, con el mensaje descriptivo `"Sincronización automática: 1 subidos, 0 bajados"`, el producto "Pan de queso 100mg" subido a la nube y los totales actualizados (141 uds / $905.400 pesos).
 ![Sincronizado](capturas/06-sincronizado.png)
 
-### 07. Panel de Supabase con la tabla products
+### 07. Panel de Supabase con la tabla products (`07-supabase.png`)
+Tabla `products` en la consola de Supabase respaldando las filas sincronizadas.
 ![Supabase](capturas/07-supabase.png)
 
 ---
