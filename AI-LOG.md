@@ -28,6 +28,7 @@
 | **`db/schema.ts`** | Intento inicial de invocar `expo-crypto` dentro del esquema para autogenerar el UUID por defecto. | Se mantuvo el esquema con `text('client_id').notNull().unique()` puro y se trasladó la generación del UUID mediante `Crypto.randomUUID()` al método `create` de `db/repositories/products.ts`. | Prevenir el fallo de Node.js al ejecutar `npx drizzle-kit generate` (`Unexpected "typeof"` o problemas de dependencias nativas). |
 | **`db/repositories/products.ts`** | Método `upsertFromCloud` sobrescribía sin verificar estampas de tiempo. | Se incorporó la comparación `cloudUpdatedAt >= local.updatedAt` para implementar el punto extra de resolución de conflictos *"gana el último cambio"*. | Evitar que una versión desactualizada de la nube sobrescriba ediciones locales más recientes hechas offline. |
 | **`services/sync.ts`** | Sincronización intentaba subir pendientes antes de descargar novedades. | Se reordenó estrictamente a Fase 1 (Bajar) y Fase 2 (Subir) según los requerimientos del examen. | Mantener integridad y consistencia en el estado antes de disparar el marcado de sincronización. |
+| **`hooks/useProducts.ts`** | `useLiveQuery` importado directamente de `drizzle-orm/expo-sqlite` fallaba en Web al leer `query.config.table`. | Se creó un adaptador multiplataforma (`useLiveQuerySafe.native.ts` y `.web.ts`) con reactividad y persistencia Web. | Permitir que la app funcione tanto en Expo Go (Android/iOS nativo con SQLite) como en navegador Web sin excepciones. |
 
 ---
 
@@ -37,3 +38,4 @@
    - La IA intentó importar primitivas como `FlatList` y `TextInput` desde `expo-router` en lugar de `react-native`. Se corrigió inmediatamente durante el ensamblaje de la pantalla principal.
 2. **Uso de junctions NTFS en sandbox:**
    - Durante la preparación del entorno, se detectó que la vinculación simbólica/junction de `node_modules` hacia un directorio externo era bloqueada por el sandbox de seguridad del sistema. Se copió limpiamente el árbol de dependencias directamente a la carpeta de trabajo para asegurar total compatibilidad offline y reproducibilidad.
+
