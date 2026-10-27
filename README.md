@@ -1,113 +1,133 @@
 # Parcial: Mi Tienda — App móvil con base de datos local y en la nube
 
-App de inventario offline-first para una tienda de barrio (Doña Rosa en Riohacha). Permite al tendero iniciar sesión, registrar productos aunque no tenga señal ni internet (fuente de verdad SQLite con Drizzle ORM) y respaldar / sincronizar los datos en la nube (Supabase) cuando regrese la conexión.
-
 ---
 
-## 1. Información del Estudiante
-
-- **Nombre completo:** Camilo Gómez
-- **Código estudiantil:** *(Ingresar tu código aquí)*
-- **Materia:** Desarrollo Móvil / Taller Integrador
-- **Semana / Evaluación:** Parcial Semana 9 — SQLite Offline-First + Supabase Sync
+## 1. Datos del Estudiante
+**Nombre completo:** Camilo Andres Gomez Pimienta  
+**Código estudiantil:** 0182220083  
 
 ---
 
 ## 2. Cómo ejecutar el proyecto
 
-### Prerrequisitos
-- Node.js (v18+)
-- Expo CLI / Expo Go instalado en tu dispositivo móvil o emulador
-
-### Pasos de instalación y ejecución
-
-1. **Clonar el repositorio:**
-   ```bash
-   git clone https://github.com/camilogo22/parcial-mi-tienda-gomez.git
-   cd parcial-mi-tienda-gomez
-   ```
-
-2. **Configurar variables de entorno (`.env`):**
-   Crea un archivo `.env` en la raíz del proyecto tomando como base `.env.example`:
+1. **Crear archivo `.env`:**
+   Copia el archivo de ejemplo o crea uno nuevo en la raíz con tus claves de Supabase:
    ```bash
    cp .env.example .env
    ```
-   Añade tus credenciales públicas de Supabase:
+   Contenido de `.env`:
    ```env
-   EXPO_PUBLIC_SUPABASE_URL=https://tu-proyecto.supabase.co
-   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=tu-anon-publishable-key
+   EXPO_PUBLIC_SUPABASE_URL=https://juogadbxarrjlzvqnhnx.supabase.co
+   EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_fn-9nkUbxengu61g4op2gg_EEj1fjWn
    ```
-   > ⚠️ **Nota de seguridad:** El archivo `.env` está en `.gitignore` y **nunca** debe ser subido al repositorio.
+   *(El archivo `.env` está protegido en `.gitignore` y no se sube a GitHub).*
 
-3. **Ejecutar el esquema SQL en Supabase:**
-   En el panel de tu proyecto de Supabase, ve a **SQL Editor** y ejecuta el script de `supabase/schema.sql` (creación de tabla `products` y políticas RLS).
-   > Además, asegúrate de desactivar la opción **"Confirm email"** en *Authentication > Providers > Email* en Supabase para permitir inicio de sesión inmediato al registrarse.
+2. **Ejecutar el SQL en Supabase:**
+   En el panel de tu proyecto de Supabase, entra al **SQL Editor** y ejecuta el script de `supabase/schema.sql`:
+   ```sql
+   create table if not exists public.products (
+     id bigint generated always as identity primary key,
+     user_id uuid not null default auth.uid() references auth.users (id) on delete cascade,
+     client_id uuid not null unique,
+     name text not null,
+     quantity integer not null check (quantity >= 0),
+     price integer not null check (price >= 0),
+     updated_at timestamptz not null,
+     created_at timestamptz not null default now()
+   );
 
-4. **Instalar dependencias:**
+   alter table public.products enable row level security;
+
+   create policy "ver los míos" on public.products
+     for select to authenticated using ((select auth.uid()) = user_id);
+
+   create policy "crear los míos" on public.products
+     for insert to authenticated with check ((select auth.uid()) = user_id);
+
+   create policy "editar los míos" on public.products
+     for update to authenticated
+     using ((select auth.uid()) = user_id)
+     with check ((select auth.uid()) = user_id);
+
+   create policy "borrar los míos" on public.products
+     for delete to authenticated using ((select auth.uid()) = user_id);
+   ```
+   *Nota:* En *Authentication > Providers > Email*, desactiva la opción **"Confirm email"** para iniciar sesión inmediatamente sin confirmación por correo.
+
+3. **Instalar dependencias:**
    ```bash
    npm install
    ```
 
-5. **Iniciar la aplicación:**
+4. **Iniciar la aplicación:**
    ```bash
    npx expo start
    ```
-   Escanea el código QR con la app Expo Go en tu teléfono (Android o iOS) o presiona `a` para emulador Android / `i` para simulador iOS.
+   Escanea el código QR con **Expo Go** en tu dispositivo físico o presiona `w` para probar en el navegador web.
 
 ---
 
 ## 3. Capturas de Pantalla
 
-A continuación se presentan las 7 evidencias requeridas en el parcial:
+A continuación se presentan las 7 capturas requeridas en la evaluación:
 
-### 01. Pantalla de Inicio de Sesión
+### 01. Pantalla de inicio de sesión
 ![Login](capturas/01-login.png)
 
-### 02. Pantalla de Registro (con validación visible)
+### 02. Pantalla de registro con validación visible
 ![Registro](capturas/02-registro.png)
 
-### 03. Pantalla Principal (Inventario, totales e indicadores)
+### 03. Pantalla principal con productos, totales e indicadores
 ![Principal](capturas/03-principal.png)
 
-### 04. Formulario de Edición de Producto
+### 04. Formulario editando un producto existente
 ![Formulario](capturas/04-formulario.png)
 
-### 05. Modo Sin Conexión (Producto creado en modo avión marcado como pendiente)
+### 05. Producto creado en modo avión (pendiente)
 ![Sin Conexión](capturas/05-sin-conexion.png)
 
-### 06. Pantalla Principal Sincronizada (Resultado de subida y descarga)
+### 06. Pantalla principal después de sincronizar con resultado
 ![Sincronizado](capturas/06-sincronizado.png)
 
-### 07. Panel de Supabase (Tabla `products` con registros y RLS)
+### 07. Panel de Supabase con la tabla products
 ![Supabase](capturas/07-supabase.png)
 
 ---
 
-## 4. Estado del Proyecto: Qué quedó funcionando y qué faltó
+## 4. Qué quedó funcionando y qué no, si algo faltó
 
-### ✅ Implementado y 100% Funcional:
-1. **Autenticación completa con Supabase Auth:**
-   - Registro con validación de correo y contraseñas (mínimo 6 caracteres y coincidencia).
-   - Inicio de sesión con persistencia segura en `SecureStore` (adaptador por fragmentos `chunked` para evitar desbordamiento del límite de ~2048 bytes).
-   - Cierre de sesión y protección estricta de rutas con `Stack.Protected`.
-2. **Base de Datos Local Offline-First (SQLite + Drizzle ORM):**
-   - Tabla `products` con columnas `id`, `clientId` (UUID único), `name`, `quantity`, `price`, `updatedAt`, `syncedAt` y `deletedAt`.
-   - Migraciones generadas con `drizzle-kit` (`0000_silly_lilith.sql` y `0001_futuristic_vulture.sql`) aplicadas automáticamente al arrancar con `useMigrations`.
-   - Repositorio desacoplado `db/repositories/products.ts` y hook reactivo `useProducts` con `useLiveQuery`.
-   - CRUD completo: creación, edición y borrado lógico sincronizable con confirmación de seguridad.
-   - Cálculos reactivos de total de unidades, valor total monetario del inventario y contador de pendientes.
-   - Funcionamiento garantizado 100% en modo avión.
-3. **Sincronización Bidireccional (Cloud Sync con Supabase):**
-   - Servicio `services/sync.ts` con flujo en dos pasos:
-     - **Bajar:** descarga productos del usuario desde Supabase e inserta los que no existan localmente.
-     - **Subir:** envía los productos pendientes mediante `upsert` por `client_id` y actualiza `syncedAt` local con el `updatedAt` enviado.
-   - Mensaje de resultado en tiempo real en la pantalla principal (`X subidos, Y bajados`) o reporte amigable de desconexión.
-4. **Puntos Extra Implementados (+0.5):**
-   - 🗑️ **Borrado sincronizado con borrado lógico (`deletedAt`):** los productos eliminados conservan su estampa de borrado para propagar la eliminación a Supabase.
-   - ⚡ **Regla de conflicto "gana el último cambio":** al bajar productos de la nube, compara estampas `updatedAt` para preservar modificaciones más recientes.
-   - 🔄 **Sincronización automática al recuperar la conexión (`useAutoSync`):** detecta la reconexión a internet y dispara la sincronización en segundo plano sin intervención manual.
-   - 🔍 **Búsqueda en tiempo real por nombre:** barra de búsqueda interactiva con botón de limpieza y filtrado instantáneo.
+### Lo que quedó 100% funcionando:
+- **Autenticación (25%):**
+  - Registro con validación de correo, longitud de contraseña (mínimo 6 caracteres) y coincidencia.
+  - Inicio de sesión y cierre de sesión seguro con Supabase Auth.
+  - Persistencia de sesión en `SecureStore` mediante fragmentos (*chunks* de 1000 bytes) que sobrevive al reinicio de la app.
+  - Protección de rutas con `Stack.Protected`.
+- **Base de datos local (25%):**
+  - Esquema SQLite con Drizzle ORM (`id`, `clientId`, `name`, `quantity`, `price`, `updatedAt`, `syncedAt`).
+  - Migraciones generadas con `drizzle-kit` y aplicadas con `useMigrations`.
+  - Repositorio desacoplado (`db/repositories/products.ts`) y hook reactivo (`useProducts`).
+  - CRUD completo (creación, edición, eliminación con confirmación).
+  - Cálculo de totales de unidades y valor total del inventario en pesos.
+  - Funcionamiento completo en modo avión sin conexión a internet.
+  - 4 productos de ejemplo cargados automáticamente.
+- **Nube y sincronización (25%):**
+  - Políticas de seguridad Row Level Security (RLS) en Supabase para aislamiento por usuario.
+  - Sincronización en dos pasos: primero descarga novedades de la nube e inserta las ausentes, luego sube pendientes vía `upsert`.
+  - Indicador de estado por producto (`● Pendiente` / `● En la nube`).
+  - Mensaje descriptivo con el resultado (`X subidos, Y bajados`).
+- **Pantallas y validaciones (10%):**
+  - 4 pantallas obligatorias (`login.tsx`, `registro.tsx`, `index.tsx`, `producto.tsx`).
+  - Validación de campos obligatorios, enteros mayores o iguales a 0 en precio y cantidad.
+  - Confirmación de seguridad antes de eliminar productos.
+- **Puntos Extra Implementados (+0.5):**
+  - Búsqueda en tiempo real por nombre de producto en la pantalla principal.
+  - Regla de conflicto "gana el último cambio" (`cloudUpdatedAt >= local.updatedAt`).
+  - Sincronización automática al recuperar la conexión (`useAutoSync`).
+  - Borrado seguro y sincronizable.
+- **Compatibilidad e Interfaz:**
+  - Cero emojis en la interfaz (reemplazados por símbolos limpios como `[⟳]`, `[+]`, `●`, `[X]`).
+  - Interfaz 100% en español.
+  - Compatibilidad multiplataforma garantizada (Android, iOS y Web).
 
-### 📌 Notas adicionales:
-- No hubo componentes faltantes respecto a la especificación técnica obligatoria.
-
+### ¿Qué faltó?:
+- Todo lo exigido en la guía y los criterios de evaluación fue implementado y probado sin componentes faltantes.

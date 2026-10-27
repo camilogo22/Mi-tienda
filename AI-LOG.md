@@ -2,7 +2,8 @@
 
 > **Materia:** Desarrollo Móvil — Taller Integrador  
 > **Semana:** 9 — Parcial: Base de Datos Local y en la Nube (Mi Tienda)  
-> **Estudiante:** Camilo Gómez  
+> **Estudiante:** Camilo Andres Gomez Pimienta  
+> **Código Estudiantil:** 0182220083  
 > **Ecosistema:** Expo SDK 57 | TypeScript | Expo Router | SQLite | Drizzle ORM | Supabase Auth & DB  
 
 ---
@@ -12,11 +13,11 @@
 ### Prompt Principal:
 > *"quiero que mires el parcial.pdf y lo empieces a desarrollar para la actividad"*
 
-### Prompts de Apoyo y Ajustes Específicos:
-1. *"Revisar la configuración de Drizzle ORM para evitar la importación de `expo-crypto` en `db/schema.ts`, ya que `drizzle-kit` corre bajo Node.js puro y genera error de ejecución."*
-2. *"Implementar el repositorio `productsRepo` generando el UUID con `Crypto.randomUUID()` dentro del repositorio y asegurando que `updatedAt: new Date()` y `syncedAt: null` se asignen en cada creación/edición."*
-3. *"Configurar la sincronización en `services/sync.ts` en dos fases estrictas: primero descargar de Supabase insertando los ausentes en local con regla de conflicto 'gana el último cambio', y segundo enviar pendientes vía `upsert` con `onConflict: 'client_id'`."*
-4. *"Asegurar el manejo de sesión en `lib/secureStorage.ts` mediante segmentación en fragmentos (chunks) de 1000 bytes para respetar los límites de tamaño en SecureStore de iOS/Android."*
+### Prompts de Desarrollo, Ajustes y Puntos Extra:
+1. *"ayudame a conectarlo a la base de datos de supabase"*
+2. *"Puntos extra (hasta 0.5): Borrado sincronizado con borrado lógico (deletedAt), Regla de conflicto 'gana el último cambio' al bajar productos que ya existen, Sincronización automática al recuperar la conexión, Búsqueda por nombre en la pantalla principal. Hazme estas cosas en mi tienda, mejora la interfaz, revisa la guía bien y termina lo que haga falta."*
+3. *"agregale unos 3-4 productos porfavor, quita las cosas que salgan en ingles y quiero que le quites todos los emoji y a la aplicacion le pones simbolo"*
+4. *"Error de sincronización: Could not find the 'deleted_at' column of 'products' in the schema cache - mira ese error no quiero que salga ningun error"*
 
 ---
 
@@ -24,18 +25,19 @@
 
 | Módulo / Archivo | Código Generado Inicialmente | Corrección / Ajuste Realizado | Razón Técnica |
 | :--- | :--- | :--- | :--- |
-| **`app/index.tsx`** | Importación de componentes de UI (`View`, `Text`, `FlatList`, `TouchableOpacity`, `Alert`, `TextInput`) desde `'expo-router'`. | Se modificó la importación para extraer dichos componentes de `'react-native'` y mantener solo `useRouter` y `Link` desde `'expo-router'`. | Error de resolución de módulos: los primitivos de UI de React Native no son exportados por el paquete de routing. |
-| **`db/schema.ts`** | Intento inicial de invocar `expo-crypto` dentro del esquema para autogenerar el UUID por defecto. | Se mantuvo el esquema con `text('client_id').notNull().unique()` puro y se trasladó la generación del UUID mediante `Crypto.randomUUID()` al método `create` de `db/repositories/products.ts`. | Prevenir el fallo de Node.js al ejecutar `npx drizzle-kit generate` (`Unexpected "typeof"` o problemas de dependencias nativas). |
-| **`db/repositories/products.ts`** | Método `upsertFromCloud` sobrescribía sin verificar estampas de tiempo. | Se incorporó la comparación `cloudUpdatedAt >= local.updatedAt` para implementar el punto extra de resolución de conflictos *"gana el último cambio"*. | Evitar que una versión desactualizada de la nube sobrescriba ediciones locales más recientes hechas offline. |
-| **`services/sync.ts`** | Sincronización intentaba subir pendientes antes de descargar novedades. | Se reordenó estrictamente a Fase 1 (Bajar) y Fase 2 (Subir) según los requerimientos del examen. | Mantener integridad y consistencia en el estado antes de disparar el marcado de sincronización. |
-| **`hooks/useProducts.ts`** | `useLiveQuery` importado directamente de `drizzle-orm/expo-sqlite` fallaba en Web al leer `query.config.table`. | Se creó un adaptador multiplataforma (`useLiveQuerySafe.native.ts` y `.web.ts`) con reactividad y persistencia Web. | Permitir que la app funcione tanto en Expo Go (Android/iOS nativo con SQLite) como en navegador Web sin excepciones. |
+| **`app/index.tsx`** | Importaba componentes como `FlatList`, `TextInput` y `TouchableOpacity` desde `'expo-router'`. | Se corrigió la importación para extraer todos los componentes visuales nativos desde `'react-native'`. | Prevenir error de importación indefinida, ya que `expo-router` no reexporta todos los primitivos de React Native. |
+| **`services/sync.ts`** | Intentaba enviar `deleted_at: null` a Supabase durante el upsert. | Se removió la columna `deleted_at` del payload de Supabase, limitándose a las columnas oficiales (`client_id`, `user_id`, `name`, `quantity`, `price`, `updated_at`). | Evitar el error de PostgREST `Could not find the 'deleted_at' column of 'products' in the schema cache` cuando la tabla en Supabase no tiene dicha columna agregada. |
+| **`hooks/useProducts.ts`** | Ejecutaba directamente `useLiveQuery` de Drizzle en cualquier entorno. | Se implementó el adaptador multiplataforma (`useLiveQuerySafe.native.ts` y `useLiveQuerySafe.web.ts`). | Evitar el fallo `Cannot read properties of undefined (reading 'table')` al ejecutar en navegadores Web donde `expo-sqlite` no cuenta con soporte nativo directo. |
+| **`db/repositories/products.ts`** | La base de datos iniciaba sin registros en blanco. | Se añadieron 4 productos iniciales de ejemplo (Arroz, Aceite, Leche, Café) tanto en SQLite como en almacenamiento Web. | Cumplir con el requisito de visualización de inventario con totales y facilitar la toma de capturas del parcial. |
+| **Interfaz y Textos** | Se generaron etiquetas con emojis y términos en inglés (*Offline-First*, *COP*). | Se reemplazaron todos los emojis por símbolos sobrios (`[⟳]`, `[+]`, `●`, `[X]`, `[T]`) y se tradujo la interfaz al 100% en español. | Cumplir estrictamente con la solicitud de estilo del usuario y presentación profesional. |
 
 ---
 
 ## 3. Alucinaciones o Advertencias Detectadas
 
 1. **Alucinación de exportaciones en `expo-router`:**
-   - La IA intentó importar primitivas como `FlatList` y `TextInput` desde `expo-router` en lugar de `react-native`. Se corrigió inmediatamente durante el ensamblaje de la pantalla principal.
-2. **Uso de junctions NTFS en sandbox:**
-   - Durante la preparación del entorno, se detectó que la vinculación simbólica/junction de `node_modules` hacia un directorio externo era bloqueada por el sandbox de seguridad del sistema. Se copió limpiamente el árbol de dependencias directamente a la carpeta de trabajo para asegurar total compatibilidad offline y reproducibilidad.
-
+   - La IA asumió que componentes fundamentales de UI (`View`, `Text`, `FlatList`) podían ser consumidos desde `expo-router`. Se corrigió direccionándolos hacia `react-native`.
+2. **Asunción de columnas en Supabase PostgREST:**
+   - Al implementar el punto extra de borrado lógico, la IA intentó sincronizar la columna `deleted_at` hacia Supabase sin verificar que la tabla creada por el usuario solo contenía las 8 columnas base especificadas en la página 3 del PDF del parcial. Esto provocó el error de PostgREST `Could not find the 'deleted_at' column in the schema cache`, el cual fue subsanado desacoplando el payload de sincronización para enviar únicamente las columnas validadas.
+3. **Fallo de SQLite WASM en entorno Web:**
+   - La IA intentó invocar `useLiveQuery` de Drizzle directamente en el navegador, el cual asume el listener de `expo-sqlite` disponible solo en Android/iOS. Se creó una capa de abstracción con patrón observador y persistencia en `localStorage` para garantizar ejecución impecable en Web y Móvil.
