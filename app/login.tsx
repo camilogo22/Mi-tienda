@@ -45,13 +45,19 @@ export default function LoginScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
           <View style={styles.header}>
-            <Text style={styles.badge}>Mi Tienda</Text>
-            <Text style={styles.title}>Iniciar Sesión</Text>
-            <Text style={styles.subtitle}>Gestión de inventario para tu tienda de barrio</Text>
+            <View style={styles.iconCircle}>
+              <Text style={styles.iconEmoji}>🏪</Text>
+            </View>
+            <Text style={styles.brandBadge}>Sistema de Inventario</Text>
+            <Text style={styles.title}>Mi Tienda</Text>
+            <Text style={styles.subtitle}>
+              Control local offline-first con respaldo en la nube
+            </Text>
           </View>
 
           {errorMessage ? (
             <View style={styles.errorBox}>
+              <Text style={styles.errorIcon}>⚠️</Text>
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -90,15 +96,15 @@ export default function LoginScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Ingresar</Text>
+              <Text style={styles.buttonText}>Ingresar al Sistema</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>¿No tienes una cuenta? </Text>
+            <Text style={styles.footerText}>¿No tienes una cuenta de tendero? </Text>
             <Link href="/registro" asChild>
               <TouchableOpacity>
-                <Text style={styles.linkText}>Regístrate aquí</Text>
+                <Text style={styles.linkText}>Regístrate</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -120,60 +126,83 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
     elevation: 4,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   header: {
     alignItems: 'center',
     marginBottom: 24,
   },
-  badge: {
+  iconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     backgroundColor: '#e0f2fe',
-    color: '#0284c7',
-    fontSize: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  iconEmoji: {
+    fontSize: 32,
+  },
+  brandBadge: {
+    backgroundColor: '#f0fdf4',
+    color: '#166534',
+    borderColor: '#bbf7d0',
+    borderWidth: 1,
+    fontSize: 11,
     fontWeight: '700',
-    paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingVertical: 3,
+    paddingHorizontal: 10,
     borderRadius: 20,
     overflow: 'hidden',
     marginBottom: 8,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   title: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: 'bold',
     color: '#0f172a',
     marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#64748b',
     textAlign: 'center',
+    lineHeight: 18,
   },
   errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fef2f2',
     borderColor: '#fca5a5',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 12,
     marginBottom: 16,
+    gap: 8,
+  },
+  errorIcon: {
+    fontSize: 15,
   },
   errorText: {
+    flex: 1,
     color: '#dc2626',
-    fontSize: 14,
-    textAlign: 'center',
+    fontSize: 13,
+    fontWeight: '500',
   },
   inputGroup: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#334155',
     marginBottom: 6,
@@ -182,18 +211,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
+    fontSize: 15,
     color: '#1e293b',
   },
   button: {
     backgroundColor: '#0284c7',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 8,
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -206,16 +240,17 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 20,
+    marginTop: 22,
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
   footerText: {
     color: '#64748b',
-    fontSize: 14,
+    fontSize: 13,
   },
   linkText: {
     color: '#0284c7',
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: 'bold',
   },
 });

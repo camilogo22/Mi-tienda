@@ -91,10 +91,10 @@ A continuación se presentan las 7 evidencias requeridas en el parcial:
    - Inicio de sesión con persistencia segura en `SecureStore` (adaptador por fragmentos `chunked` para evitar desbordamiento del límite de ~2048 bytes).
    - Cierre de sesión y protección estricta de rutas con `Stack.Protected`.
 2. **Base de Datos Local Offline-First (SQLite + Drizzle ORM):**
-   - Tabla `products` con columnas `id`, `clientId` (UUID único), `name`, `quantity`, `price`, `updatedAt` y `syncedAt`.
-   - Migraciones generadas con `drizzle-kit` aplicadas automáticamente al arrancar con `useMigrations`.
+   - Tabla `products` con columnas `id`, `clientId` (UUID único), `name`, `quantity`, `price`, `updatedAt`, `syncedAt` y `deletedAt`.
+   - Migraciones generadas con `drizzle-kit` (`0000_silly_lilith.sql` y `0001_futuristic_vulture.sql`) aplicadas automáticamente al arrancar con `useMigrations`.
    - Repositorio desacoplado `db/repositories/products.ts` y hook reactivo `useProducts` con `useLiveQuery`.
-   - CRUD completo: creación, edición y eliminación (con confirmación de seguridad).
+   - CRUD completo: creación, edición y borrado lógico sincronizable con confirmación de seguridad.
    - Cálculos reactivos de total de unidades, valor total monetario del inventario y contador de pendientes.
    - Funcionamiento garantizado 100% en modo avión.
 3. **Sincronización Bidireccional (Cloud Sync con Supabase):**
@@ -102,10 +102,12 @@ A continuación se presentan las 7 evidencias requeridas en el parcial:
      - **Bajar:** descarga productos del usuario desde Supabase e inserta los que no existan localmente.
      - **Subir:** envía los productos pendientes mediante `upsert` por `client_id` y actualiza `syncedAt` local con el `updatedAt` enviado.
    - Mensaje de resultado en tiempo real en la pantalla principal (`X subidos, Y bajados`) o reporte amigable de desconexión.
-4. **Puntos Extra Implementados:**
-   - Búsqueda en tiempo real por nombre de producto en la pantalla principal.
-   - Regla de resolución de conflictos *"gana el último cambio"* al bajar registros existentes desde la nube.
-   - Validación completa en formulario (nombre obligatorio, cantidad y precio enteros $\ge 0$).
+4. **Puntos Extra Implementados (+0.5):**
+   - 🗑️ **Borrado sincronizado con borrado lógico (`deletedAt`):** los productos eliminados conservan su estampa de borrado para propagar la eliminación a Supabase.
+   - ⚡ **Regla de conflicto "gana el último cambio":** al bajar productos de la nube, compara estampas `updatedAt` para preservar modificaciones más recientes.
+   - 🔄 **Sincronización automática al recuperar la conexión (`useAutoSync`):** detecta la reconexión a internet y dispara la sincronización en segundo plano sin intervención manual.
+   - 🔍 **Búsqueda en tiempo real por nombre:** barra de búsqueda interactiva con botón de limpieza y filtrado instantáneo.
 
 ### 📌 Notas adicionales:
 - No hubo componentes faltantes respecto a la especificación técnica obligatoria.
+

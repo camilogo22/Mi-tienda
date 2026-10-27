@@ -39,3 +39,4 @@ export function useLiveQuery(query?: any) {
 
   return { data, error, updatedAt };
 }
+

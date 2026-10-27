@@ -37,3 +37,4 @@ if (!isWeb) {
 
 export const expoDb = expoDbInstance;
 export const db: ReturnType<typeof drizzle<typeof schema>> = dbInstance;
+

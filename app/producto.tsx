@@ -44,12 +44,22 @@ export default function ProductoFormScreen() {
         setQuantity(prod.quantity.toString());
         setPrice(prod.price.toString());
       } else {
-        Alert.alert('Error', 'No se encontró el producto a editar.', [
-          { text: 'Aceptar', onPress: () => router.back() },
-        ]);
+        const errorMsg = 'No se encontró el producto a editar.';
+        if (Platform.OS === 'web') {
+          window.alert(errorMsg);
+          router.back();
+        } else {
+          Alert.alert('Error', errorMsg, [
+            { text: 'Aceptar', onPress: () => router.back() },
+          ]);
+        }
       }
     } catch (err: any) {
-      Alert.alert('Error', 'Error al cargar el producto: ' + err.message);
+      if (Platform.OS === 'web') {
+        window.alert('Error al cargar el producto: ' + err.message);
+      } else {
+        Alert.alert('Error', 'Error al cargar el producto: ' + err.message);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -65,14 +75,26 @@ export default function ProductoFormScreen() {
     }
 
     const parsedQuantity = Number(quantity.trim());
-    if (quantity.trim() === '' || isNaN(parsedQuantity) || !Number.isInteger(parsedQuantity) || parsedQuantity < 0) {
+    if (
+      quantity.trim() === '' ||
+      isNaN(parsedQuantity) ||
+      !Number.isInteger(parsedQuantity) ||
+      parsedQuantity < 0
+    ) {
       setErrorMessage('La cantidad debe ser un número entero mayor o igual a 0.');
       return;
     }
 
     const parsedPrice = Number(price.trim());
-    if (price.trim() === '' || isNaN(parsedPrice) || !Number.isInteger(parsedPrice) || parsedPrice < 0) {
-      setErrorMessage('El precio debe ser un número entero mayor o igual a 0 (en pesos, sin decimales).');
+    if (
+      price.trim() === '' ||
+      isNaN(parsedPrice) ||
+      !Number.isInteger(parsedPrice) ||
+      parsedPrice < 0
+    ) {
+      setErrorMessage(
+        'El precio debe ser un número entero mayor o igual a 0 (en pesos, sin decimales).'
+      );
       return;
     }
 
@@ -93,10 +115,19 @@ export default function ProductoFormScreen() {
       }
       router.back();
     } catch (err: any) {
-      setErrorMessage('Error al guardar el producto: ' + (err.message || 'Error desconocido'));
+      setErrorMessage('Error al guardar: ' + (err.message || 'Error desconocido'));
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const calcSubtotal = () => {
+    const q = Number(quantity);
+    const p = Number(price);
+    if (!isNaN(q) && !isNaN(p) && q >= 0 && p >= 0) {
+      return (q * p).toLocaleString('es-CO');
+    }
+    return '0';
   };
 
   if (isLoading) {
@@ -115,61 +146,78 @@ export default function ProductoFormScreen() {
     >
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <View style={styles.card}>
-          <Text style={styles.title}>
+          <View style={styles.badgeRow}>
+            <View style={styles.categoryPill}>
+              <Text style={styles.categoryPillText}>
+                {isEditing ? 'Edición de inventario' : 'Alta de producto'}
+              </Text>
+            </View>
+          </View>
+
+          <Text style={styles.formTitle}>
             {isEditing ? 'Editar Producto' : 'Nuevo Producto'}
           </Text>
-          <Text style={styles.subtitle}>
+          <Text style={styles.formSubtitle}>
             {isEditing
-              ? 'Modifica los datos del producto en el inventario'
-              : 'Registra un nuevo producto para tu tienda'}
+              ? 'Actualiza los datos del producto existente en la tienda'
+              : 'Registra un producto para llevar control del stock y precio'}
           </Text>
 
           {errorMessage ? (
-            <View style={styles.errorBox}>
-              <Text style={styles.errorText}>{errorMessage}</Text>
+            <View style={styles.alertBox}>
+              <Text style={styles.alertIcon}>⚠️</Text>
+              <Text style={styles.alertText}>{errorMessage}</Text>
             </View>
           ) : null}
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Nombre del producto *</Text>
+            <Text style={styles.fieldLabel}>Nombre del producto *</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Ej. Arroz Diana 1kg, Leche entera, Harina PAN"
+              style={styles.inputControl}
+              placeholder="Ej. Arroz Diana 1kg, Aceite Gourmet, Leche entera"
               placeholderTextColor="#94a3b8"
               value={name}
               onChangeText={setName}
             />
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Cantidad en existencia *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="0"
-              placeholderTextColor="#94a3b8"
-              keyboardType="number-pad"
-              value={quantity}
-              onChangeText={setQuantity}
-            />
-            <Text style={styles.helperText}>Unidades enteras mayores o iguales a 0</Text>
+          <View style={styles.twoColRow}>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.fieldLabel}>Cantidad (uds) *</Text>
+              <TextInput
+                style={styles.inputControl}
+                placeholder="0"
+                placeholderTextColor="#94a3b8"
+                keyboardType="number-pad"
+                value={quantity}
+                onChangeText={setQuantity}
+              />
+              <Text style={styles.fieldHint}>Mayor o igual a 0</Text>
+            </View>
+
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <Text style={styles.fieldLabel}>Precio en COP *</Text>
+              <TextInput
+                style={styles.inputControl}
+                placeholder="4500"
+                placeholderTextColor="#94a3b8"
+                keyboardType="number-pad"
+                value={price}
+                onChangeText={setPrice}
+              />
+              <Text style={styles.fieldHint}>Sin puntos ni decimales</Text>
+            </View>
           </View>
 
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Precio en pesos (COP) *</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Ej. 4500"
-              placeholderTextColor="#94a3b8"
-              keyboardType="number-pad"
-              value={price}
-              onChangeText={setPrice}
-            />
-            <Text style={styles.helperText}>Sin puntos ni comas ni decimales</Text>
+          {/* Tarjeta de Cálculo en Vivo */}
+          <View style={styles.calcSummaryBox}>
+            <Text style={styles.calcLabel}>Valor en Stock Calculado:</Text>
+            <Text style={styles.calcValue}>${calcSubtotal()} COP</Text>
           </View>
 
-          <View style={styles.buttonGroup}>
+          <View style={styles.actionButtonGroup}>
             <TouchableOpacity
-              style={[styles.saveButton, isSubmitting && styles.btnDisabled]}
+              style={[styles.primarySaveBtn, isSubmitting && styles.btnDisabled]}
               onPress={handleSave}
               disabled={isSubmitting}
               activeOpacity={0.8}
@@ -177,19 +225,19 @@ export default function ProductoFormScreen() {
               {isSubmitting ? (
                 <ActivityIndicator color="#ffffff" />
               ) : (
-                <Text style={styles.saveButtonText}>
-                  {isEditing ? 'Actualizar Producto' : 'Guardar Producto'}
+                <Text style={styles.primarySaveBtnText}>
+                  {isEditing ? 'Actualizar Producto' : 'Guardar en Inventario'}
                 </Text>
               )}
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.cancelButton}
+              style={styles.cancelBtn}
               onPress={() => router.back()}
               disabled={isSubmitting}
               activeOpacity={0.8}
             >
-              <Text style={styles.cancelButtonText}>Cancelar</Text>
+              <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -215,7 +263,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
+    justifyContent: 'center',
   },
   card: {
     backgroundColor: '#ffffff',
@@ -226,80 +275,133 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  title: {
+  badgeRow: {
+    flexDirection: 'row',
+    marginBottom: 8,
+  },
+  categoryPill: {
+    backgroundColor: '#e0f2fe',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  categoryPillText: {
+    color: '#0369a1',
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  formTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#0f172a',
     marginBottom: 4,
   },
-  subtitle: {
-    fontSize: 14,
+  formSubtitle: {
+    fontSize: 13,
     color: '#64748b',
-    marginBottom: 20,
+    marginBottom: 18,
   },
-  errorBox: {
+  alertBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#fef2f2',
     borderColor: '#fca5a5',
     borderWidth: 1,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 12,
     marginBottom: 16,
+    gap: 8,
   },
-  errorText: {
-    color: '#dc2626',
-    fontSize: 14,
-    textAlign: 'center',
+  alertIcon: {
+    fontSize: 16,
+  },
+  alertText: {
+    flex: 1,
+    color: '#b91c1c',
+    fontSize: 13,
     fontWeight: '500',
   },
   inputGroup: {
-    marginBottom: 18,
+    marginBottom: 16,
   },
-  label: {
-    fontSize: 14,
+  twoColRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  fieldLabel: {
+    fontSize: 13,
     fontWeight: '600',
     color: '#334155',
     marginBottom: 6,
   },
-  input: {
+  inputControl: {
     backgroundColor: '#f8fafc',
     borderWidth: 1,
     borderColor: '#cbd5e1',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
-    color: '#1e293b',
+    fontSize: 15,
+    color: '#0f172a',
   },
-  helperText: {
-    fontSize: 12,
+  fieldHint: {
+    fontSize: 11,
     color: '#94a3b8',
     marginTop: 4,
   },
-  buttonGroup: {
-    marginTop: 10,
-    gap: 12,
+  calcSummaryBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    borderColor: '#bae6fd',
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
   },
-  saveButton: {
+  calcLabel: {
+    fontSize: 13,
+    color: '#0369a1',
+    fontWeight: '600',
+  },
+  calcValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#0284c7',
+  },
+  actionButtonGroup: {
+    gap: 10,
+  },
+  primarySaveBtn: {
     backgroundColor: '#0284c7',
-    borderRadius: 8,
+    borderRadius: 10,
     paddingVertical: 14,
     alignItems: 'center',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  saveButtonText: {
+  primarySaveBtnText: {
     color: '#ffffff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  cancelButton: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 8,
+  cancelBtn: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 10,
     paddingVertical: 12,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#cbd5e1',
   },
-  cancelButtonText: {
+  cancelBtnText: {
     color: '#475569',
     fontSize: 15,
     fontWeight: '600',

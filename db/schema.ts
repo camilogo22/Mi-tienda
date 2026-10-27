@@ -9,6 +9,7 @@ export const products = sqliteTable('products', {
   price: integer('price').notNull(),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
   syncedAt: integer('synced_at', { mode: 'timestamp_ms' }),
+  deletedAt: integer('deleted_at', { mode: 'timestamp_ms' }),
 });
 
 export type Product = typeof products.$inferSelect;

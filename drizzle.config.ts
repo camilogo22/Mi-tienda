@@ -6,3 +6,4 @@ export default defineConfig({
   schema: './db/schema.ts',
   out: './drizzle',
 });
+

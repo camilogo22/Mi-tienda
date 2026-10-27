@@ -1,5 +1,5 @@
 // app/index.tsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,10 +11,12 @@ import {
   TextInput,
   RefreshControl,
   SafeAreaView,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { useProducts } from '@/hooks/useProducts';
+import { useAutoSync } from '@/hooks/useAutoSync';
 import { syncProducts } from '@/services/sync';
 import type { Product } from '@/db/schema';
 
@@ -30,14 +32,26 @@ export default function IndexScreen() {
 
   const {
     products,
+    allProducts,
     totalUnits,
     totalValue,
     pendingCount,
     deleteProduct,
   } = useProducts(searchQuery);
 
+  // Sincronización automática al recuperar la conexión (Punto extra)
+  useAutoSync(
+    user?.id,
+    useCallback((result) => {
+      setSyncStatusMessage({
+        text: `Auto-sincronizado: ${result.message}`,
+        type: 'success',
+      });
+    }, [])
+  );
+
   const formatCurrency = (amount: number) => {
-    return '$' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return '$' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' COP';
   };
 
   const handleSync = async () => {
@@ -72,38 +86,50 @@ export default function IndexScreen() {
     });
   };
 
-  const handleProductLongPress = (product: Product) => {
-    Alert.alert(
-      'Eliminar producto',
-      `¿Estás seguro de que deseas eliminar "${product.name}" del inventario?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteProduct(product.id);
-            } catch (err: any) {
-              Alert.alert('Error', 'No se pudo eliminar el producto: ' + err.message);
-            }
-          },
-        },
-      ]
-    );
+  const handleProductDelete = (product: Product) => {
+    const confirmDelete = async () => {
+      try {
+        await deleteProduct(product.id);
+        setSyncStatusMessage({
+          text: `"${product.name}" eliminado localmente (borrado sincronizable)`,
+          type: 'info',
+        });
+      } catch (err: any) {
+        Alert.alert('Error', 'No se pudo eliminar el producto: ' + err.message);
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`¿Estás seguro de que deseas eliminar "${product.name}" del inventario?`)) {
+        confirmDelete();
+      }
+    } else {
+      Alert.alert(
+        'Eliminar producto',
+        `¿Estás seguro de que deseas eliminar "${product.name}" del inventario?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Eliminar', style: 'destructive', onPress: confirmDelete },
+        ]
+      );
+    }
   };
 
   const handleSignOut = () => {
-    Alert.alert('Cerrar sesión', '¿Deseas cerrar tu sesión?', [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Cerrar sesión',
-        style: 'destructive',
-        onPress: async () => {
-          await signOut();
-        },
-      },
-    ]);
+    const performLogout = async () => {
+      await signOut();
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm('¿Deseas cerrar tu sesión?')) {
+        performLogout();
+      }
+    } else {
+      Alert.alert('Cerrar sesión', '¿Deseas salir de la aplicación?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Cerrar sesión', style: 'destructive', onPress: performLogout },
+      ]);
+    }
   };
 
   const isPending = (p: Product) => {
@@ -113,55 +139,70 @@ export default function IndexScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        {/* Barra superior con título y botón de salir */}
-        <View style={styles.topBar}>
-          <View>
-            <Text style={styles.appName}>Mi Tienda</Text>
-            <Text style={styles.userEmail} numberOfLines={1}>
+        {/* Cabecera Principal */}
+        <View style={styles.topHeader}>
+          <View style={styles.headerInfo}>
+            <View style={styles.titleRow}>
+              <Text style={styles.brandTitle}>Mi Tienda</Text>
+              <View style={styles.onlinePill}>
+                <View style={styles.greenDot} />
+                <Text style={styles.onlinePillText}>Offline-First</Text>
+              </View>
+            </View>
+            <Text style={styles.userSubtitle} numberOfLines={1}>
               {user?.email || 'Tendero'}
             </Text>
           </View>
           <TouchableOpacity
-            style={styles.logoutBtn}
+            style={styles.logoutButton}
             onPress={handleSignOut}
             activeOpacity={0.7}
           >
-            <Text style={styles.logoutBtnText}>Cerrar sesión</Text>
+            <Text style={styles.logoutButtonText}>Salir</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Tarjetas de Resumen / Totales */}
-        <View style={styles.summaryContainer}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Total Unidades</Text>
-            <Text style={styles.summaryValue}>{totalUnits}</Text>
+        {/* Tarjetas de Estadísticas / Resumen */}
+        <View style={styles.metricsContainer}>
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Total Unidades</Text>
+            <Text style={styles.metricNumber}>{totalUnits}</Text>
+            <Text style={styles.metricFoot}>{allProducts.length} productos</Text>
           </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Valor Total</Text>
-            <Text style={styles.summaryValue}>{formatCurrency(totalValue)}</Text>
+
+          <View style={styles.metricCard}>
+            <Text style={styles.metricLabel}>Valor Inventario</Text>
+            <Text style={styles.metricNumberValue}>
+              {'$' + totalValue.toLocaleString('es-CO')}
+            </Text>
+            <Text style={styles.metricFoot}>Total estimado</Text>
           </View>
+
           <View
             style={[
-              styles.summaryCard,
-              pendingCount > 0 ? styles.summaryCardWarning : styles.summaryCardSuccess,
+              styles.metricCard,
+              pendingCount > 0 ? styles.metricPendingAlert : styles.metricSyncedOk,
             ]}
           >
-            <Text style={styles.summaryLabel}>Pendientes</Text>
+            <Text style={styles.metricLabel}>Pendientes</Text>
             <Text
               style={[
-                styles.summaryValue,
-                pendingCount > 0 ? styles.summaryValueWarning : styles.summaryValueSuccess,
+                styles.metricNumber,
+                pendingCount > 0 ? styles.pendingTextAlert : styles.syncedTextOk,
               ]}
             >
               {pendingCount}
             </Text>
+            <Text style={styles.metricFoot}>
+              {pendingCount > 0 ? 'Por subir' : 'Todo en nube'}
+            </Text>
           </View>
         </View>
 
-        {/* Botones de acción principales: Sincronizar y Agregar */}
-        <View style={styles.actionsRow}>
+        {/* Botones de Acción */}
+        <View style={styles.actionRow}>
           <TouchableOpacity
-            style={[styles.syncButton, isSyncing && styles.btnDisabled]}
+            style={[styles.syncBtn, isSyncing && styles.btnDisabled]}
             onPress={handleSync}
             disabled={isSyncing}
             activeOpacity={0.8}
@@ -169,24 +210,24 @@ export default function IndexScreen() {
             {isSyncing ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
-              <Text style={styles.syncButtonText}>🔄 Sincronizar</Text>
+              <Text style={styles.syncBtnText}>🔄 Sincronizar</Text>
             )}
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.addButton}
+            style={styles.addBtn}
             onPress={() => router.push('/producto')}
             activeOpacity={0.8}
           >
-            <Text style={styles.addButtonText}>➕ Nuevo Producto</Text>
+            <Text style={styles.addBtnText}>➕ Nuevo Producto</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Mensaje de estado de sincronización */}
+        {/* Banner de Estado de Sincronización */}
         {syncStatusMessage && (
           <View
             style={[
-              styles.statusBanner,
+              styles.statusNotice,
               syncStatusMessage.type === 'success' && styles.statusSuccess,
               syncStatusMessage.type === 'error' && styles.statusError,
               syncStatusMessage.type === 'info' && styles.statusInfo,
@@ -194,7 +235,7 @@ export default function IndexScreen() {
           >
             <Text
               style={[
-                styles.statusBannerText,
+                styles.statusNoticeText,
                 syncStatusMessage.type === 'success' && styles.textSuccess,
                 syncStatusMessage.type === 'error' && styles.textError,
                 syncStatusMessage.type === 'info' && styles.textInfo,
@@ -205,30 +246,45 @@ export default function IndexScreen() {
           </View>
         )}
 
-        {/* Barra de Búsqueda (Punto extra) */}
-        <View style={styles.searchContainer}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder="🔍 Buscar producto por nombre..."
-            placeholderTextColor="#94a3b8"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+        {/* Barra de Búsqueda Interactiva (Punto Extra) */}
+        <View style={styles.searchWrap}>
+          <View style={styles.searchBar}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Buscar producto por nombre..."
+              placeholderTextColor="#94a3b8"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              clearButtonMode="while-editing"
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Text style={styles.clearSearch}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
-        {/* Lista de productos */}
+        {/* Lista de Productos */}
         <FlatList
           data={products}
           keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={styles.listContainer}
           showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={isSyncing} onRefresh={handleSync} />
+          }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyTitle}>No hay productos registrados</Text>
-              <Text style={styles.emptySubtitle}>
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyIcon}>📦</Text>
+              <Text style={styles.emptyHeading}>
+                {searchQuery ? 'Sin resultados para la búsqueda' : 'Inventario vacío'}
+              </Text>
+              <Text style={styles.emptyDetails}>
                 {searchQuery
-                  ? 'No se encontraron productos con ese nombre.'
-                  : 'Toca "➕ Nuevo Producto" para añadir el primero.'}
+                  ? `No se encontró ningún producto que coincida con "${searchQuery}".`
+                  : 'Aún no has registrado ningún producto. Presiona "+ Nuevo Producto" para empezar.'}
               </Text>
             </View>
           }
@@ -236,23 +292,25 @@ export default function IndexScreen() {
             const pending = isPending(item);
             return (
               <TouchableOpacity
-                style={styles.productCard}
+                style={styles.cardItem}
                 onPress={() => handleProductPress(item)}
-                onLongPress={() => handleProductLongPress(item)}
+                onLongPress={() => handleProductDelete(item)}
                 activeOpacity={0.7}
               >
-                <View style={styles.productHeader}>
-                  <Text style={styles.productName}>{item.name}</Text>
+                <View style={styles.cardTop}>
+                  <Text style={styles.productTitle} numberOfLines={1}>
+                    {item.name}
+                  </Text>
                   <View
                     style={[
-                      styles.syncBadge,
-                      pending ? styles.badgePending : styles.badgeSynced,
+                      styles.statusPill,
+                      pending ? styles.pillPending : styles.pillSynced,
                     ]}
                   >
                     <Text
                       style={[
-                        styles.syncBadgeText,
-                        pending ? styles.badgePendingText : styles.badgeSyncedText,
+                        styles.statusPillText,
+                        pending ? styles.pillPendingText : styles.pillSyncedText,
                       ]}
                     >
                       {pending ? '⏳ Pendiente' : '☁️ En la nube'}
@@ -260,26 +318,35 @@ export default function IndexScreen() {
                   </View>
                 </View>
 
-                <View style={styles.productDetails}>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Cantidad:</Text>
-                    <Text style={styles.detailValue}>{item.quantity} uds</Text>
+                <View style={styles.cardSpecs}>
+                  <View style={styles.specBox}>
+                    <Text style={styles.specLabel}>Existencias</Text>
+                    <Text style={styles.specValue}>{item.quantity} uds</Text>
                   </View>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Precio unitario:</Text>
-                    <Text style={styles.detailValue}>{formatCurrency(item.price)}</Text>
+                  <View style={styles.specBox}>
+                    <Text style={styles.specLabel}>Precio Unitario</Text>
+                    <Text style={styles.specValue}>{formatCurrency(item.price)}</Text>
                   </View>
-                  <View style={styles.detailItem}>
-                    <Text style={styles.detailLabel}>Subtotal:</Text>
-                    <Text style={styles.detailTotal}>
+                  <View style={styles.specBox}>
+                    <Text style={styles.specLabel}>Subtotal</Text>
+                    <Text style={styles.specTotal}>
                       {formatCurrency(item.quantity * item.price)}
                     </Text>
                   </View>
                 </View>
 
-                <Text style={styles.hintText}>
-                  Toca para editar • Mantén presionado para eliminar
-                </Text>
+                <View style={styles.cardActionsFooter}>
+                  <Text style={styles.actionPrompt}>
+                    Toca para editar • Mantén presionado para borrar
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => handleProductDelete(item)}
+                    style={styles.deleteMiniBtn}
+                    activeOpacity={0.6}
+                  >
+                    <Text style={styles.deleteMiniText}>🗑️</Text>
+                  </TouchableOpacity>
+                </View>
               </TouchableOpacity>
             );
           }}
@@ -296,116 +363,168 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f8fafc',
   },
-  topBar: {
+  topHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#0284c7',
     paddingHorizontal: 16,
     paddingVertical: 14,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
-  appName: {
+  headerInfo: {
+    flex: 1,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  brandTitle: {
     fontSize: 22,
     fontWeight: 'bold',
     color: '#ffffff',
   },
-  userEmail: {
-    fontSize: 12,
-    color: '#bae6fd',
-    maxWidth: 200,
+  onlinePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 12,
+    gap: 5,
   },
-  logoutBtn: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+  greenDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#4ade80',
   },
-  logoutBtnText: {
+  onlinePillText: {
     color: '#ffffff',
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
-  summaryContainer: {
+  userSubtitle: {
+    fontSize: 12,
+    color: '#e0f2fe',
+    marginTop: 2,
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  logoutButtonText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  metricsContainer: {
     flexDirection: 'row',
     padding: 12,
     gap: 8,
   },
-  summaryCard: {
+  metricCard: {
     flex: 1,
     backgroundColor: '#ffffff',
     borderRadius: 12,
-    padding: 12,
+    padding: 10,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
-    shadowRadius: 2,
+    shadowRadius: 3,
     elevation: 2,
   },
-  summaryCardWarning: {
+  metricPendingAlert: {
     backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
     borderWidth: 1,
+    borderColor: '#fde68a',
   },
-  summaryCardSuccess: {
+  metricSyncedOk: {
     backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
   },
-  summaryLabel: {
+  metricLabel: {
     fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
     textTransform: 'uppercase',
-    marginBottom: 4,
   },
-  summaryValue: {
-    fontSize: 16,
+  metricNumber: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#0f172a',
+    marginVertical: 2,
   },
-  summaryValueWarning: {
+  metricNumberValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0284c7',
+    marginVertical: 2,
+  },
+  metricFoot: {
+    fontSize: 10,
+    color: '#94a3b8',
+  },
+  pendingTextAlert: {
     color: '#b45309',
   },
-  summaryValueSuccess: {
+  syncedTextOk: {
     color: '#15803d',
   },
-  actionsRow: {
+  actionRow: {
     flexDirection: 'row',
     paddingHorizontal: 12,
     gap: 10,
     marginBottom: 8,
   },
-  syncButton: {
+  syncBtn: {
     flex: 1,
-    backgroundColor: '#0ea5e9',
+    backgroundColor: '#0284c7',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  syncButtonText: {
+  syncBtnText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
-  addButton: {
+  addBtn: {
     flex: 1,
     backgroundColor: '#16a34a',
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#16a34a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
-  addButtonText: {
+  addBtnText: {
     color: '#ffffff',
     fontSize: 14,
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   btnDisabled: {
-    opacity: 0.7,
+    opacity: 0.6,
   },
-  statusBanner: {
+  statusNotice: {
     marginHorizontal: 12,
     marginBottom: 8,
     padding: 10,
@@ -414,140 +533,175 @@ const styles = StyleSheet.create({
   },
   statusSuccess: {
     backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    borderColor: '#86efac',
   },
   statusError: {
     backgroundColor: '#fef2f2',
-    borderColor: '#fecaca',
+    borderColor: '#fca5a5',
   },
   statusInfo: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: '#f0f9ff',
+    borderColor: '#bae6fd',
   },
-  statusBannerText: {
+  statusNoticeText: {
     fontSize: 13,
     textAlign: 'center',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   textSuccess: {
-    color: '#166534',
+    color: '#15803d',
   },
   textError: {
-    color: '#991b1b',
+    color: '#b91c1c',
   },
   textInfo: {
-    color: '#1e40af',
+    color: '#0369a1',
   },
-  searchContainer: {
+  searchWrap: {
     paddingHorizontal: 12,
     marginBottom: 8,
   },
-  searchInput: {
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#e2e8f0',
     paddingHorizontal: 12,
-    paddingVertical: 8,
+    height: 44,
+  },
+  searchIcon: {
+    fontSize: 14,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
     fontSize: 14,
     color: '#1e293b',
   },
-  listContent: {
-    padding: 12,
-    paddingBottom: 32,
+  clearSearch: {
+    fontSize: 14,
+    color: '#94a3b8',
+    paddingHorizontal: 4,
   },
-  productCard: {
+  listContainer: {
+    padding: 12,
+    paddingBottom: 40,
+  },
+  cardItem: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 14,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#f1f5f9',
   },
-  productHeader: {
+  cardTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
-  productName: {
+  productTitle: {
     fontSize: 17,
     fontWeight: 'bold',
     color: '#0f172a',
     flex: 1,
     marginRight: 8,
   },
-  syncBadge: {
+  statusPill: {
     paddingHorizontal: 8,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 20,
   },
-  badgePending: {
+  pillPending: {
     backgroundColor: '#fef3c7',
   },
-  badgeSynced: {
+  pillSynced: {
     backgroundColor: '#dcfce7',
   },
-  syncBadgeText: {
+  statusPillText: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: '700',
   },
-  badgePendingText: {
+  pillPendingText: {
     color: '#b45309',
   },
-  badgeSyncedText: {
+  pillSyncedText: {
     color: '#15803d',
   },
-  productDetails: {
+  cardSpecs: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     backgroundColor: '#f8fafc',
-    padding: 8,
-    borderRadius: 8,
+    padding: 10,
+    borderRadius: 10,
     marginBottom: 8,
   },
-  detailItem: {
+  specBox: {
     alignItems: 'center',
   },
-  detailLabel: {
+  specLabel: {
     fontSize: 11,
     color: '#64748b',
     marginBottom: 2,
   },
-  detailValue: {
+  specValue: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1e293b',
   },
-  detailTotal: {
+  specTotal: {
     fontSize: 14,
     fontWeight: 'bold',
     color: '#0284c7',
   },
-  hintText: {
+  cardActionsFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  actionPrompt: {
     fontSize: 11,
     color: '#94a3b8',
-    textAlign: 'center',
     fontStyle: 'italic',
   },
-  emptyContainer: {
+  deleteMiniBtn: {
+    padding: 4,
+  },
+  deleteMiniText: {
+    fontSize: 14,
+  },
+  emptyCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 32,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 48,
+    marginTop: 20,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
-  emptyTitle: {
-    fontSize: 16,
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyHeading: {
+    fontSize: 17,
     fontWeight: 'bold',
-    color: '#475569',
-    marginBottom: 4,
+    color: '#334155',
+    marginBottom: 6,
   },
-  emptySubtitle: {
+  emptyDetails: {
     fontSize: 13,
     color: '#94a3b8',
     textAlign: 'center',
-    paddingHorizontal: 32,
+    lineHeight: 18,
   },
 });

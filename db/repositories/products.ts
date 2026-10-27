@@ -1,7 +1,7 @@
 // db/repositories/products.ts
 import { Platform } from 'react-native';
 import * as Crypto from 'expo-crypto';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, isNull } from 'drizzle-orm';
 import { db } from '../client';
 import { products, type Product } from '../schema';
 
@@ -22,6 +22,7 @@ function getWebProducts(): Product[] {
       ...p,
       updatedAt: new Date(p.updatedAt),
       syncedAt: p.syncedAt ? new Date(p.syncedAt) : null,
+      deletedAt: p.deletedAt ? new Date(p.deletedAt) : null,
     }));
   } catch (err) {
     console.warn('Error leyendo localStorage:', err);
@@ -58,8 +59,21 @@ export const productsRepo = {
     });
   },
 
-  // Obtener todos los productos (ordenados por fecha de modificación)
+  // Obtener todos los productos activos (excluye borrados lógicos)
   async getAll(): Promise<Product[]> {
+    if (isWeb) {
+      const items = getWebProducts().filter((p) => !p.deletedAt);
+      return items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+    }
+    return db
+      .select()
+      .from(products)
+      .where(isNull(products.deletedAt))
+      .orderBy(desc(products.updatedAt));
+  },
+
+  // Obtener todos los productos incluyendo borrados lógicos (para sincronización)
+  async getAllWithDeleted(): Promise<Product[]> {
     if (isWeb) {
       const items = getWebProducts();
       return items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
@@ -67,14 +81,18 @@ export const productsRepo = {
     return db.select().from(products).orderBy(desc(products.updatedAt));
   },
 
-  // Obtener producto por ID local
+  // Obtener producto activo por ID local
   async getById(id: number): Promise<Product | null> {
     if (isWeb) {
       const items = getWebProducts();
-      return items.find((p) => p.id === id) ?? null;
+      return items.find((p) => p.id === id && !p.deletedAt) ?? null;
     }
-    const rows = await db.select().from(products).where(eq(products.id, id));
-    return rows[0] ?? null;
+    const rows = await db
+      .select()
+      .from(products)
+      .where(eq(products.id, id));
+    const prod = rows[0] ?? null;
+    return prod && !prod.deletedAt ? prod : null;
   },
 
   // Obtener producto por clientId (UUID)
@@ -103,6 +121,7 @@ export const productsRepo = {
         price: Math.max(0, Math.floor(data.price)),
         updatedAt: now,
         syncedAt: null,
+        deletedAt: null,
       };
       items.push(newProd);
       saveWebProducts(items);
@@ -119,6 +138,7 @@ export const productsRepo = {
         price: Math.max(0, Math.floor(data.price)),
         updatedAt: now,
         syncedAt: null,
+        deletedAt: null,
       })
       .returning();
 
@@ -160,23 +180,39 @@ export const productsRepo = {
     productsRepo.notify();
   },
 
-  // Eliminar producto local
+  // Borrado lógico sincronizable (punto extra)
   async delete(id: number): Promise<void> {
+    const now = new Date();
+
     if (isWeb) {
       const items = getWebProducts();
-      const filtered = items.filter((p) => p.id !== id);
-      saveWebProducts(filtered);
-      productsRepo.notify();
+      const index = items.findIndex((p) => p.id === id);
+      if (index !== -1) {
+        items[index] = {
+          ...items[index],
+          deletedAt: now,
+          updatedAt: now,
+        };
+        saveWebProducts(items);
+        productsRepo.notify();
+      }
       return;
     }
 
-    await db.delete(products).where(eq(products.id, id));
+    await db
+      .update(products)
+      .set({
+        deletedAt: now,
+        updatedAt: now,
+      })
+      .where(eq(products.id, id));
+
     productsRepo.notify();
   },
 
-  // Obtener productos pendientes de sincronizar (syncedAt nulo o menor a updatedAt)
+  // Obtener productos pendientes de sincronizar
   async getPending(): Promise<Product[]> {
-    const all = await productsRepo.getAll();
+    const all = await productsRepo.getAllWithDeleted();
     return all.filter((p) => !p.syncedAt || p.syncedAt.getTime() < p.updatedAt.getTime());
   },
 
@@ -201,22 +237,24 @@ export const productsRepo = {
     productsRepo.notify();
   },
 
-  // Bajar productos de la nube e insertar / actualizar con regla 'gana el último cambio'
+  // Bajar productos de la nube e insertar / actualizar con regla 'gana el último cambio' y borrado lógico
   async upsertFromCloud(items: Array<{
     client_id: string;
     name: string;
     quantity: number;
     price: number;
     updated_at: string;
+    deleted_at?: string | null;
   }>): Promise<{ downloadedCount: number }> {
     let downloadedCount = 0;
 
     for (const cloudItem of items) {
       const local = await productsRepo.getByClientId(cloudItem.client_id);
       const cloudUpdatedAt = new Date(cloudItem.updated_at);
+      const cloudDeletedAt = cloudItem.deleted_at ? new Date(cloudItem.deleted_at) : null;
 
       if (!local) {
-        // No existe en local -> se inserta marcado como sincronizado
+        // No existe en local
         if (isWeb) {
           const webItems = getWebProducts();
           const nextId = webItems.length > 0 ? Math.max(...webItems.map((p) => p.id)) + 1 : 1;
@@ -228,6 +266,7 @@ export const productsRepo = {
             price: cloudItem.price,
             updatedAt: cloudUpdatedAt,
             syncedAt: cloudUpdatedAt,
+            deletedAt: cloudDeletedAt,
           });
           saveWebProducts(webItems);
         } else {
@@ -238,11 +277,14 @@ export const productsRepo = {
             price: cloudItem.price,
             updatedAt: cloudUpdatedAt,
             syncedAt: cloudUpdatedAt,
+            deletedAt: cloudDeletedAt,
           });
         }
-        downloadedCount++;
+        if (!cloudDeletedAt) {
+          downloadedCount++;
+        }
       } else {
-        // Existe localmente: regla 'gana el último cambio'
+        // Regla 'gana el último cambio'
         if (cloudUpdatedAt.getTime() >= local.updatedAt.getTime()) {
           if (isWeb) {
             const webItems = getWebProducts();
@@ -255,6 +297,7 @@ export const productsRepo = {
                 price: cloudItem.price,
                 updatedAt: cloudUpdatedAt,
                 syncedAt: cloudUpdatedAt,
+                deletedAt: cloudDeletedAt,
               };
               saveWebProducts(webItems);
             }
@@ -267,6 +310,7 @@ export const productsRepo = {
                 price: cloudItem.price,
                 updatedAt: cloudUpdatedAt,
                 syncedAt: cloudUpdatedAt,
+                deletedAt: cloudDeletedAt,
               })
               .where(eq(products.clientId, cloudItem.client_id));
           }

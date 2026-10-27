@@ -1,4 +1,4 @@
--- Script SQL para Supabase (Tabla products con Row Level Security)
+-- Script SQL para Supabase (Tabla products con Row Level Security y Borrado Lógico)
 -- Ejecutar en el SQL Editor del proyecto en Supabase
 
 create table if not exists public.products (
@@ -9,8 +9,12 @@ create table if not exists public.products (
   quantity integer not null check (quantity >= 0),
   price integer not null check (price >= 0),
   updated_at timestamptz not null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  deleted_at timestamptz default null
 );
+
+-- Si la tabla ya fue creada previamente sin deleted_at:
+alter table public.products add column if not exists deleted_at timestamptz default null;
 
 alter table public.products enable row level security;
 
