@@ -1,15 +1,28 @@
 // app/_layout.tsx
-import React from 'react';
-import { View, ActivityIndicator, Text, Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, Text } from 'react-native';
+import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useMigrations } from 'drizzle-orm/expo-sqlite/migrator';
-import migrations from '@/drizzle/migrations';
-import { db } from '@/db/client';
+import { useDatabaseMigrations } from '@/hooks/useDatabaseMigrations';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 
 function RootNavigator() {
   const { session, isLoading } = useAuth();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    const currentSegment = segments[0] as string | undefined;
+    const isAuthRoute = currentSegment === 'login' || currentSegment === 'registro';
+
+    if (!session && !isAuthRoute) {
+      router.replace('/login');
+    } else if (session && (isAuthRoute || !currentSegment)) {
+      router.replace('/');
+    }
+  }, [session, segments, isLoading, router]);
 
   if (isLoading) {
     return (
@@ -28,24 +41,16 @@ function RootNavigator() {
         headerBackTitle: 'Volver',
       }}
     >
-      <Stack.Protected guard={!session}>
-        <Stack.Screen name="login" options={{ title: 'Iniciar Sesión', headerShown: false }} />
-        <Stack.Screen name="registro" options={{ title: 'Crear Cuenta' }} />
-      </Stack.Protected>
-
-      <Stack.Protected guard={!!session}>
-        <Stack.Screen name="index" options={{ title: 'Mi Tienda', headerShown: false }} />
-        <Stack.Screen name="producto" options={{ title: 'Producto' }} />
-      </Stack.Protected>
+      <Stack.Screen name="index" options={{ title: 'Mi Tienda', headerShown: false }} />
+      <Stack.Screen name="producto" options={{ title: 'Producto' }} />
+      <Stack.Screen name="login" options={{ title: 'Iniciar Sesión', headerShown: false }} />
+      <Stack.Screen name="registro" options={{ title: 'Crear Cuenta' }} />
     </Stack>
   );
 }
 
 export default function RootLayout() {
-  const isWeb = Platform.OS === 'web';
-  const { success, error } = isWeb
-    ? { success: true, error: null }
-    : useMigrations(db, migrations);
+  const { success, error } = useDatabaseMigrations();
 
   if (error) {
     return (
@@ -78,4 +83,3 @@ export default function RootLayout() {
     </AuthProvider>
   );
 }
-
