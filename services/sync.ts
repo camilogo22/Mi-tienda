@@ -12,10 +12,10 @@ export interface SyncResult {
 export async function syncProducts(userId: string): Promise<SyncResult> {
   try {
     // Paso 1: Bajar
-    // Traer de Supabase los productos del usuario (incluyendo borrados lógicos si existen)
+    // Traer de Supabase los productos del usuario
     const { data: cloudProducts, error: fetchError } = await supabase
       .from('products')
-      .select('*')
+      .select('client_id, name, quantity, price, updated_at')
       .eq('user_id', userId);
 
     if (fetchError) {
@@ -29,15 +29,15 @@ export async function syncProducts(userId: string): Promise<SyncResult> {
     }
 
     // Paso 2: Subir
-    // Enviar los productos pendientes con upsert por client_id y marcarlos como sincronizados
+    // Enviar los productos pendientes con upsert por client_id
+    // Solo enviamos columnas existentes en Supabase (sin deleted_at para evitar error de caché de esquema)
     const pendingProducts = await productsRepo.getPending();
     let uploadedCount = 0;
 
     for (const p of pendingProducts) {
       const uploadTimestamp = p.updatedAt;
 
-      // Payload base
-      const payload: any = {
+      const payload = {
         client_id: p.clientId,
         user_id: userId,
         name: p.name,
@@ -46,31 +46,15 @@ export async function syncProducts(userId: string): Promise<SyncResult> {
         updated_at: uploadTimestamp.toISOString(),
       };
 
-      if (p.deletedAt) {
-        payload.deleted_at = p.deletedAt.toISOString();
-      } else {
-        payload.deleted_at = null;
-      }
-
-      // Intentar upsert con deleted_at
-      let { error: upsertError } = await supabase
+      const { error: upsertError } = await supabase
         .from('products')
         .upsert(payload, { onConflict: 'client_id' });
-
-      // Si la columna deleted_at no existe aún en Supabase, reintentar sin ella
-      if (upsertError && upsertError.code === '42703') {
-        delete payload.deleted_at;
-        const retry = await supabase
-          .from('products')
-          .upsert(payload, { onConflict: 'client_id' });
-        upsertError = retry.error;
-      }
 
       if (upsertError) {
         throw new Error(upsertError.message);
       }
 
-      // Marcar en SQLite local como sincronizado
+      // Marcar en la base local como sincronizado
       await productsRepo.markAsSynced(p.clientId, uploadTimestamp);
       uploadedCount++;
     }
@@ -84,11 +68,11 @@ export async function syncProducts(userId: string): Promise<SyncResult> {
     };
   } catch (error: any) {
     console.error('Error durante sincronización:', error);
+    const rawMsg = error?.message || '';
     const errorMsg =
-      error?.message?.includes('Network request failed') ||
-      error?.message?.includes('fetch failed')
-        ? 'Sin conexión a internet (modo offline)'
-        : error?.message || 'Error al sincronizar con la nube';
+      rawMsg.includes('Network request failed') || rawMsg.includes('fetch failed')
+        ? 'Sin conexión a internet (modo local)'
+        : rawMsg || 'Error al sincronizar con la nube';
 
     return {
       success: false,

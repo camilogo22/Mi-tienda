@@ -64,18 +64,18 @@ export default function RegistroScreen() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Text style={styles.iconEmoji}>📝</Text>
+              <Text style={styles.iconSymbol}>[R]</Text>
             </View>
-            <Text style={styles.brandBadge}>Nueva Cuenta</Text>
-            <Text style={styles.title}>Registro de Tendero</Text>
+            <Text style={styles.brandBadge}>Registro</Text>
+            <Text style={styles.title}>Crear cuenta de tendero</Text>
             <Text style={styles.subtitle}>
-              Crea tu usuario para respaldar el inventario de Doña Rosa en la nube
+              Registra tu acceso para respaldar el inventario de Doña Rosa
             </Text>
           </View>
 
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorIcon}>⚠️</Text>
+              <Text style={styles.errorBadge}>[Aviso]</Text>
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -126,14 +126,14 @@ export default function RegistroScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Crear Mi Cuenta</Text>
+              <Text style={styles.buttonText}>Registrar mi cuenta</Text>
             )}
           </TouchableOpacity>
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>¿Ya tienes una cuenta registrada? </Text>
             <TouchableOpacity onPress={() => router.back()}>
-              <Text style={styles.linkText}>Volver al login</Text>
+              <Text style={styles.linkText}>Volver al inicio de sesión</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -169,16 +169,20 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
   },
-  iconEmoji: {
-    fontSize: 32,
+  iconSymbol: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#0284c7',
   },
   brandBadge: {
     backgroundColor: '#f0fdf4',
@@ -217,8 +221,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 8,
   },
-  errorIcon: {
-    fontSize: 15,
+  errorBadge: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#dc2626',
   },
   errorText: {
     flex: 1,

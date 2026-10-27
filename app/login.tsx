@@ -46,18 +46,18 @@ export default function LoginScreen() {
         <View style={styles.card}>
           <View style={styles.header}>
             <View style={styles.iconCircle}>
-              <Text style={styles.iconEmoji}>🏪</Text>
+              <Text style={styles.iconSymbol}>[T]</Text>
             </View>
-            <Text style={styles.brandBadge}>Sistema de Inventario</Text>
+            <Text style={styles.brandBadge}>Sistema de inventario</Text>
             <Text style={styles.title}>Mi Tienda</Text>
             <Text style={styles.subtitle}>
-              Control local offline-first con respaldo en la nube
+              Control local sin conexión y sincronización con la nube
             </Text>
           </View>
 
           {errorMessage ? (
             <View style={styles.errorBox}>
-              <Text style={styles.errorIcon}>⚠️</Text>
+              <Text style={styles.errorBadge}>[Aviso]</Text>
               <Text style={styles.errorText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -96,7 +96,7 @@ export default function LoginScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" />
             ) : (
-              <Text style={styles.buttonText}>Ingresar al Sistema</Text>
+              <Text style={styles.buttonText}>Ingresar al sistema</Text>
             )}
           </TouchableOpacity>
 
@@ -104,7 +104,7 @@ export default function LoginScreen() {
             <Text style={styles.footerText}>¿No tienes una cuenta de tendero? </Text>
             <Link href="/registro" asChild>
               <TouchableOpacity>
-                <Text style={styles.linkText}>Regístrate</Text>
+                <Text style={styles.linkText}>Regístrate aquí</Text>
               </TouchableOpacity>
             </Link>
           </View>
@@ -141,16 +141,20 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   iconCircle: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: '#e0f2fe',
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
   },
-  iconEmoji: {
-    fontSize: 32,
+  iconSymbol: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#0284c7',
   },
   brandBadge: {
     backgroundColor: '#f0fdf4',
@@ -189,8 +193,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 8,
   },
-  errorIcon: {
-    fontSize: 15,
+  errorBadge: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#dc2626',
   },
   errorText: {
     flex: 1,

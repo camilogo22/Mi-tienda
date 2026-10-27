@@ -155,7 +155,7 @@ export default function ProductoFormScreen() {
           </View>
 
           <Text style={styles.formTitle}>
-            {isEditing ? 'Editar Producto' : 'Nuevo Producto'}
+            {isEditing ? 'Editar producto' : 'Nuevo producto'}
           </Text>
           <Text style={styles.formSubtitle}>
             {isEditing
@@ -165,7 +165,7 @@ export default function ProductoFormScreen() {
 
           {errorMessage ? (
             <View style={styles.alertBox}>
-              <Text style={styles.alertIcon}>⚠️</Text>
+              <Text style={styles.alertBadge}>[Error]</Text>
               <Text style={styles.alertText}>{errorMessage}</Text>
             </View>
           ) : null}
@@ -174,7 +174,7 @@ export default function ProductoFormScreen() {
             <Text style={styles.fieldLabel}>Nombre del producto *</Text>
             <TextInput
               style={styles.inputControl}
-              placeholder="Ej. Arroz Diana 1kg, Aceite Gourmet, Leche entera"
+              placeholder="Ejemplo: Arroz Diana 1kg, Aceite Premier, Leche entera"
               placeholderTextColor="#94a3b8"
               value={name}
               onChangeText={setName}
@@ -183,7 +183,7 @@ export default function ProductoFormScreen() {
 
           <View style={styles.twoColRow}>
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>Cantidad (uds) *</Text>
+              <Text style={styles.fieldLabel}>Cantidad (unidades) *</Text>
               <TextInput
                 style={styles.inputControl}
                 placeholder="0"
@@ -196,7 +196,7 @@ export default function ProductoFormScreen() {
             </View>
 
             <View style={[styles.inputGroup, { flex: 1 }]}>
-              <Text style={styles.fieldLabel}>Precio en COP *</Text>
+              <Text style={styles.fieldLabel}>Precio en pesos *</Text>
               <TextInput
                 style={styles.inputControl}
                 placeholder="4500"
@@ -205,14 +205,14 @@ export default function ProductoFormScreen() {
                 value={price}
                 onChangeText={setPrice}
               />
-              <Text style={styles.fieldHint}>Sin puntos ni decimales</Text>
+              <Text style={styles.fieldHint}>Sin puntos ni comas</Text>
             </View>
           </View>
 
-          {/* Tarjeta de Cálculo en Vivo */}
+          {/* Tarjeta de Cálculo */}
           <View style={styles.calcSummaryBox}>
-            <Text style={styles.calcLabel}>Valor en Stock Calculado:</Text>
-            <Text style={styles.calcValue}>${calcSubtotal()} COP</Text>
+            <Text style={styles.calcLabel}>Valor en existencia calculado:</Text>
+            <Text style={styles.calcValue}>${calcSubtotal()} pesos</Text>
           </View>
 
           <View style={styles.actionButtonGroup}>
@@ -226,7 +226,7 @@ export default function ProductoFormScreen() {
                 <ActivityIndicator color="#ffffff" />
               ) : (
                 <Text style={styles.primarySaveBtnText}>
-                  {isEditing ? 'Actualizar Producto' : 'Guardar en Inventario'}
+                  {isEditing ? 'Actualizar producto' : 'Guardar en inventario'}
                 </Text>
               )}
             </TouchableOpacity>
@@ -316,8 +316,10 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     gap: 8,
   },
-  alertIcon: {
-    fontSize: 16,
+  alertBadge: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#b91c1c',
   },
   alertText: {
     flex: 1,

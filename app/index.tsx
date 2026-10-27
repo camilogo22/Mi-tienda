@@ -1,5 +1,5 @@
 // app/index.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useProducts } from '@/hooks/useProducts';
 import { useAutoSync } from '@/hooks/useAutoSync';
 import { syncProducts } from '@/services/sync';
+import { productsRepo } from '@/db/repositories/products';
 import type { Product } from '@/db/schema';
 
 export default function IndexScreen() {
@@ -39,19 +40,24 @@ export default function IndexScreen() {
     deleteProduct,
   } = useProducts(searchQuery);
 
-  // Sincronización automática al recuperar la conexión (Punto extra)
+  // Asegura productos de ejemplo si la lista está vacía
+  useEffect(() => {
+    productsRepo.ensureSampleProducts().catch((e) => console.log('Inicialización:', e));
+  }, []);
+
+  // Sincronización automática al recuperar conexión
   useAutoSync(
     user?.id,
     useCallback((result) => {
       setSyncStatusMessage({
-        text: `Auto-sincronizado: ${result.message}`,
+        text: `Sincronización automática: ${result.message}`,
         type: 'success',
       });
     }, [])
   );
 
   const formatCurrency = (amount: number) => {
-    return '$' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + ' COP';
+    return '$' + amount.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   };
 
   const handleSync = async () => {
@@ -61,7 +67,7 @@ export default function IndexScreen() {
     }
 
     setIsSyncing(true);
-    setSyncStatusMessage({ text: 'Sincronizando con Supabase...', type: 'info' });
+    setSyncStatusMessage({ text: 'Sincronizando con la nube de Supabase...', type: 'info' });
 
     const result = await syncProducts(user.id);
     setIsSyncing(false);
@@ -91,7 +97,7 @@ export default function IndexScreen() {
       try {
         await deleteProduct(product.id);
         setSyncStatusMessage({
-          text: `"${product.name}" eliminado localmente (borrado sincronizable)`,
+          text: `"${product.name}" eliminado del inventario`,
           type: 'info',
         });
       } catch (err: any) {
@@ -100,13 +106,13 @@ export default function IndexScreen() {
     };
 
     if (Platform.OS === 'web') {
-      if (window.confirm(`¿Estás seguro de que deseas eliminar "${product.name}" del inventario?`)) {
+      if (window.confirm(`¿Deseas eliminar "${product.name}" del inventario?`)) {
         confirmDelete();
       }
     } else {
       Alert.alert(
         'Eliminar producto',
-        `¿Estás seguro de que deseas eliminar "${product.name}" del inventario?`,
+        `¿Deseas eliminar "${product.name}" del inventario?`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Eliminar', style: 'destructive', onPress: confirmDelete },
@@ -146,11 +152,11 @@ export default function IndexScreen() {
               <Text style={styles.brandTitle}>Mi Tienda</Text>
               <View style={styles.onlinePill}>
                 <View style={styles.greenDot} />
-                <Text style={styles.onlinePillText}>Offline-First</Text>
+                <Text style={styles.onlinePillText}>Base local activa</Text>
               </View>
             </View>
             <Text style={styles.userSubtitle} numberOfLines={1}>
-              {user?.email || 'Tendero'}
+              {user?.email || 'Usuario tendero'}
             </Text>
           </View>
           <TouchableOpacity
@@ -158,24 +164,24 @@ export default function IndexScreen() {
             onPress={handleSignOut}
             activeOpacity={0.7}
           >
-            <Text style={styles.logoutButtonText}>Salir</Text>
+            <Text style={styles.logoutButtonText}>Cerrar sesión</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Tarjetas de Estadísticas / Resumen */}
+        {/* Tarjetas de Estadísticas */}
         <View style={styles.metricsContainer}>
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Total Unidades</Text>
+            <Text style={styles.metricLabel}>Total unidades</Text>
             <Text style={styles.metricNumber}>{totalUnits}</Text>
-            <Text style={styles.metricFoot}>{allProducts.length} productos</Text>
+            <Text style={styles.metricFoot}>{allProducts.length} registros</Text>
           </View>
 
           <View style={styles.metricCard}>
-            <Text style={styles.metricLabel}>Valor Inventario</Text>
+            <Text style={styles.metricLabel}>Valor inventario</Text>
             <Text style={styles.metricNumberValue}>
-              {'$' + totalValue.toLocaleString('es-CO')}
+              {formatCurrency(totalValue)}
             </Text>
-            <Text style={styles.metricFoot}>Total estimado</Text>
+            <Text style={styles.metricFoot}>Total en pesos</Text>
           </View>
 
           <View
@@ -194,7 +200,7 @@ export default function IndexScreen() {
               {pendingCount}
             </Text>
             <Text style={styles.metricFoot}>
-              {pendingCount > 0 ? 'Por subir' : 'Todo en nube'}
+              {pendingCount > 0 ? 'Por respaldar' : 'Al día en nube'}
             </Text>
           </View>
         </View>
@@ -210,7 +216,7 @@ export default function IndexScreen() {
             {isSyncing ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
-              <Text style={styles.syncBtnText}>🔄 Sincronizar</Text>
+              <Text style={styles.syncBtnText}>[⟳] Sincronizar</Text>
             )}
           </TouchableOpacity>
 
@@ -219,7 +225,7 @@ export default function IndexScreen() {
             onPress={() => router.push('/producto')}
             activeOpacity={0.8}
           >
-            <Text style={styles.addBtnText}>➕ Nuevo Producto</Text>
+            <Text style={styles.addBtnText}>[+] Nuevo producto</Text>
           </TouchableOpacity>
         </View>
 
@@ -246,21 +252,20 @@ export default function IndexScreen() {
           </View>
         )}
 
-        {/* Barra de Búsqueda Interactiva (Punto Extra) */}
+        {/* Barra de Búsqueda */}
         <View style={styles.searchWrap}>
           <View style={styles.searchBar}>
-            <Text style={styles.searchIcon}>🔍</Text>
+            <Text style={styles.searchIcon}>[Búsqueda]</Text>
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar producto por nombre..."
+              placeholder="Escribe el nombre del producto..."
               placeholderTextColor="#94a3b8"
               value={searchQuery}
               onChangeText={setSearchQuery}
-              clearButtonMode="while-editing"
             />
             {searchQuery.length > 0 && (
               <TouchableOpacity onPress={() => setSearchQuery('')}>
-                <Text style={styles.clearSearch}>✕</Text>
+                <Text style={styles.clearSearch}>[X]</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -277,14 +282,13 @@ export default function IndexScreen() {
           }
           ListEmptyComponent={
             <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>📦</Text>
               <Text style={styles.emptyHeading}>
-                {searchQuery ? 'Sin resultados para la búsqueda' : 'Inventario vacío'}
+                {searchQuery ? 'Sin resultados para la búsqueda' : 'No hay productos en inventario'}
               </Text>
               <Text style={styles.emptyDetails}>
                 {searchQuery
                   ? `No se encontró ningún producto que coincida con "${searchQuery}".`
-                  : 'Aún no has registrado ningún producto. Presiona "+ Nuevo Producto" para empezar.'}
+                  : 'Presiona "[+] Nuevo producto" para registrar existencias.'}
               </Text>
             </View>
           }
@@ -313,7 +317,7 @@ export default function IndexScreen() {
                         pending ? styles.pillPendingText : styles.pillSyncedText,
                       ]}
                     >
-                      {pending ? '⏳ Pendiente' : '☁️ En la nube'}
+                      {pending ? '● Pendiente' : '● En la nube'}
                     </Text>
                   </View>
                 </View>
@@ -321,14 +325,14 @@ export default function IndexScreen() {
                 <View style={styles.cardSpecs}>
                   <View style={styles.specBox}>
                     <Text style={styles.specLabel}>Existencias</Text>
-                    <Text style={styles.specValue}>{item.quantity} uds</Text>
+                    <Text style={styles.specValue}>{item.quantity} unidades</Text>
                   </View>
                   <View style={styles.specBox}>
-                    <Text style={styles.specLabel}>Precio Unitario</Text>
+                    <Text style={styles.specLabel}>Precio unitario</Text>
                     <Text style={styles.specValue}>{formatCurrency(item.price)}</Text>
                   </View>
                   <View style={styles.specBox}>
-                    <Text style={styles.specLabel}>Subtotal</Text>
+                    <Text style={styles.specLabel}>Valor total</Text>
                     <Text style={styles.specTotal}>
                       {formatCurrency(item.quantity * item.price)}
                     </Text>
@@ -337,14 +341,14 @@ export default function IndexScreen() {
 
                 <View style={styles.cardActionsFooter}>
                   <Text style={styles.actionPrompt}>
-                    Toca para editar • Mantén presionado para borrar
+                    Toca para editar · Mantén presionado para borrar
                   </Text>
                   <TouchableOpacity
                     onPress={() => handleProductDelete(item)}
                     style={styles.deleteMiniBtn}
                     activeOpacity={0.6}
                   >
-                    <Text style={styles.deleteMiniText}>🗑️</Text>
+                    <Text style={styles.deleteMiniText}>[Borrar]</Text>
                   </TouchableOpacity>
                 </View>
               </TouchableOpacity>
@@ -572,7 +576,9 @@ const styles = StyleSheet.create({
     height: 44,
   },
   searchIcon: {
-    fontSize: 14,
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
     marginRight: 8,
   },
   searchInput: {
@@ -581,7 +587,8 @@ const styles = StyleSheet.create({
     color: '#1e293b',
   },
   clearSearch: {
-    fontSize: 14,
+    fontSize: 11,
+    fontWeight: '700',
     color: '#94a3b8',
     paddingHorizontal: 4,
   },
@@ -671,13 +678,17 @@ const styles = StyleSheet.create({
   actionPrompt: {
     fontSize: 11,
     color: '#94a3b8',
-    fontStyle: 'italic',
   },
   deleteMiniBtn: {
-    padding: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 4,
+    backgroundColor: '#fee2e2',
   },
   deleteMiniText: {
-    fontSize: 14,
+    fontSize: 11,
+    color: '#dc2626',
+    fontWeight: '700',
   },
   emptyCard: {
     backgroundColor: '#ffffff',
@@ -688,12 +699,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e2e8f0',
   },
-  emptyIcon: {
-    fontSize: 48,
-    marginBottom: 12,
-  },
   emptyHeading: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#334155',
     marginBottom: 6,

@@ -11,12 +11,33 @@ const listeners = new Set<Listener>();
 const isWeb = Platform.OS === 'web';
 const WEB_STORAGE_KEY = 'mitienda_local_products_web';
 
-// Soporte para Web usando localStorage
+// Productos iniciales de ejemplo para la tienda
+const SAMPLE_PRODUCTS = [
+  { name: 'Arroz Diana 1kg', quantity: 24, price: 4500 },
+  { name: 'Aceite Premier 1000ml', quantity: 12, price: 9800 },
+  { name: 'Leche Entera Alquería 1L', quantity: 18, price: 4200 },
+  { name: 'Café Sello Rojo 500g', quantity: 15, price: 13500 },
+];
+
 function getWebProducts(): Product[] {
   try {
     if (typeof localStorage === 'undefined') return [];
     const raw = localStorage.getItem(WEB_STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) {
+      // Inicializar con productos de ejemplo en Web
+      const initial: Product[] = SAMPLE_PRODUCTS.map((item, idx) => ({
+        id: idx + 1,
+        clientId: Crypto.randomUUID(),
+        name: item.name,
+        quantity: item.quantity,
+        price: item.price,
+        updatedAt: new Date(Date.now() - (idx + 1) * 60000),
+        syncedAt: null,
+        deletedAt: null,
+      }));
+      localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(initial));
+      return initial;
+    }
     const parsed = JSON.parse(raw);
     return parsed.map((p: any) => ({
       ...p,
@@ -25,7 +46,7 @@ function getWebProducts(): Product[] {
       deletedAt: p.deletedAt ? new Date(p.deletedAt) : null,
     }));
   } catch (err) {
-    console.warn('Error leyendo localStorage:', err);
+    console.warn('Error leyendo almacenamiento web:', err);
     return [];
   }
 }
@@ -36,12 +57,11 @@ function saveWebProducts(items: Product[]) {
       localStorage.setItem(WEB_STORAGE_KEY, JSON.stringify(items));
     }
   } catch (err) {
-    console.warn('Error guardando en localStorage:', err);
+    console.warn('Error guardando en almacenamiento web:', err);
   }
 }
 
 export const productsRepo = {
-  // Suscripción a cambios para reactividad en pantalla
   subscribe(fn: Listener) {
     listeners.add(fn);
     return () => {
@@ -54,12 +74,22 @@ export const productsRepo = {
       try {
         fn();
       } catch (err) {
-        console.error('Error notificando listener:', err);
+        console.error('Error notificando observador:', err);
       }
     });
   },
 
-  // Obtener todos los productos activos (excluye borrados lógicos)
+  // Inicializar productos de muestra si la base local está vacía
+  async ensureSampleProducts(): Promise<void> {
+    const existing = await productsRepo.getAll();
+    if (existing.length === 0) {
+      for (const item of SAMPLE_PRODUCTS) {
+        await productsRepo.create(item);
+      }
+    }
+  },
+
+  // Obtener productos activos (ordenados por fecha de modificación)
   async getAll(): Promise<Product[]> {
     if (isWeb) {
       const items = getWebProducts().filter((p) => !p.deletedAt);
@@ -72,25 +102,13 @@ export const productsRepo = {
       .orderBy(desc(products.updatedAt));
   },
 
-  // Obtener todos los productos incluyendo borrados lógicos (para sincronización)
-  async getAllWithDeleted(): Promise<Product[]> {
-    if (isWeb) {
-      const items = getWebProducts();
-      return items.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
-    }
-    return db.select().from(products).orderBy(desc(products.updatedAt));
-  },
-
-  // Obtener producto activo por ID local
+  // Obtener producto activo por ID
   async getById(id: number): Promise<Product | null> {
     if (isWeb) {
       const items = getWebProducts();
       return items.find((p) => p.id === id && !p.deletedAt) ?? null;
     }
-    const rows = await db
-      .select()
-      .from(products)
-      .where(eq(products.id, id));
+    const rows = await db.select().from(products).where(eq(products.id, id));
     const prod = rows[0] ?? null;
     return prod && !prod.deletedAt ? prod : null;
   },
@@ -146,7 +164,7 @@ export const productsRepo = {
     return created;
   },
 
-  // Editar producto existente local
+  // Editar producto existente
   async update(id: number, data: { name: string; quantity: number; price: number }): Promise<void> {
     const now = new Date();
 
@@ -180,39 +198,23 @@ export const productsRepo = {
     productsRepo.notify();
   },
 
-  // Borrado lógico sincronizable (punto extra)
+  // Eliminar producto
   async delete(id: number): Promise<void> {
-    const now = new Date();
-
     if (isWeb) {
       const items = getWebProducts();
-      const index = items.findIndex((p) => p.id === id);
-      if (index !== -1) {
-        items[index] = {
-          ...items[index],
-          deletedAt: now,
-          updatedAt: now,
-        };
-        saveWebProducts(items);
-        productsRepo.notify();
-      }
+      const filtered = items.filter((p) => p.id !== id);
+      saveWebProducts(filtered);
+      productsRepo.notify();
       return;
     }
 
-    await db
-      .update(products)
-      .set({
-        deletedAt: now,
-        updatedAt: now,
-      })
-      .where(eq(products.id, id));
-
+    await db.delete(products).where(eq(products.id, id));
     productsRepo.notify();
   },
 
-  // Obtener productos pendientes de sincronizar
+  // Obtener productos pendientes de sincronizar (solo activos)
   async getPending(): Promise<Product[]> {
-    const all = await productsRepo.getAllWithDeleted();
+    const all = await productsRepo.getAll();
     return all.filter((p) => !p.syncedAt || p.syncedAt.getTime() < p.updatedAt.getTime());
   },
 
@@ -237,24 +239,21 @@ export const productsRepo = {
     productsRepo.notify();
   },
 
-  // Bajar productos de la nube e insertar / actualizar con regla 'gana el último cambio' y borrado lógico
+  // Bajar productos de la nube
   async upsertFromCloud(items: Array<{
     client_id: string;
     name: string;
     quantity: number;
     price: number;
     updated_at: string;
-    deleted_at?: string | null;
   }>): Promise<{ downloadedCount: number }> {
     let downloadedCount = 0;
 
     for (const cloudItem of items) {
       const local = await productsRepo.getByClientId(cloudItem.client_id);
       const cloudUpdatedAt = new Date(cloudItem.updated_at);
-      const cloudDeletedAt = cloudItem.deleted_at ? new Date(cloudItem.deleted_at) : null;
 
       if (!local) {
-        // No existe en local
         if (isWeb) {
           const webItems = getWebProducts();
           const nextId = webItems.length > 0 ? Math.max(...webItems.map((p) => p.id)) + 1 : 1;
@@ -266,7 +265,7 @@ export const productsRepo = {
             price: cloudItem.price,
             updatedAt: cloudUpdatedAt,
             syncedAt: cloudUpdatedAt,
-            deletedAt: cloudDeletedAt,
+            deletedAt: null,
           });
           saveWebProducts(webItems);
         } else {
@@ -277,14 +276,12 @@ export const productsRepo = {
             price: cloudItem.price,
             updatedAt: cloudUpdatedAt,
             syncedAt: cloudUpdatedAt,
-            deletedAt: cloudDeletedAt,
+            deletedAt: null,
           });
         }
-        if (!cloudDeletedAt) {
-          downloadedCount++;
-        }
+        downloadedCount++;
       } else {
-        // Regla 'gana el último cambio'
+        // Regla: gana el último cambio
         if (cloudUpdatedAt.getTime() >= local.updatedAt.getTime()) {
           if (isWeb) {
             const webItems = getWebProducts();
@@ -297,7 +294,6 @@ export const productsRepo = {
                 price: cloudItem.price,
                 updatedAt: cloudUpdatedAt,
                 syncedAt: cloudUpdatedAt,
-                deletedAt: cloudDeletedAt,
               };
               saveWebProducts(webItems);
             }
@@ -310,7 +306,6 @@ export const productsRepo = {
                 price: cloudItem.price,
                 updatedAt: cloudUpdatedAt,
                 syncedAt: cloudUpdatedAt,
-                deletedAt: cloudDeletedAt,
               })
               .where(eq(products.clientId, cloudItem.client_id));
           }
